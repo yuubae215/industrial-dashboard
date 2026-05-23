@@ -4,8 +4,8 @@ import { useAlarmMonitor } from '../store/useAlarmStore'
 import { useAlarmStore } from '../store/useAlarmStore'
 import { usePlcConfigStore, MELSEC_PLC_ID, KEYENCE_PLC_ID } from '../store/usePlcConfigStore'
 import { usePlcStore } from '../store/usePlcStore'
-import { AlarmPanel } from './AlarmPanel'
-import { MetricCard } from './MetricCard'
+// import { AlarmPanel } from './AlarmPanel'
+// import { MetricCard } from './MetricCard'
 import { RealtimeTrendChart } from './RealtimeTrendChart'
 import { WatchWindow } from './WatchWindow'
 import { Footer } from './Footer'
@@ -111,7 +111,7 @@ export const Dashboard: React.FC = () => {
         fontFamily: theme.fontMono,
       }}
     >
-      <AlarmPanel />
+      {/* <AlarmPanel /> */}
 
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
@@ -164,7 +164,7 @@ export const Dashboard: React.FC = () => {
 
         {/* Body */}
         <div style={{ flex: 1, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Metrics */}
+          {/* Metrics — disabled
           <section>
             <div
               style={{
@@ -204,6 +204,7 @@ export const Dashboard: React.FC = () => {
               />
             </div>
           </section>
+          */}
 
           {/* Trend chart */}
           {isTrendVisible && (
