@@ -9,6 +9,10 @@ setInterval(() => {
   kvBase += Math.random() < 0.5 ? 1 : -1
 }, 500)
 
+export function isTauri(): boolean {
+  return false
+}
+
 export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const n = (args?.num_points as number) ?? 5
 
