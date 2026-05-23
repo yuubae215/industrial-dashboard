@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(npm install)",
+      "Bash(cd src-tauri && cargo check)",
+      "Bash(cd src-tauri && cargo check --message-format short)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git fetch*)",
+      "Bash(git branch*)",
+      "Bash(find . -type f*)",
+      "Bash(ls*)",
+      "Bash(cat*)"
+    ]
+  }
+}
