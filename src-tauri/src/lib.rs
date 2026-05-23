@@ -47,6 +47,23 @@ async fn plc_read_keyence(
         .map_err(|e| e.to_string())
 }
 
+/// 三菱 PLC デバイス一括書き込み
+///
+/// device: "D" / "M" / "W" / "X" / "Y" / "B"
+/// head_number: 先頭デバイス番号
+/// values: 書き込む値のリスト（i16 範囲、最大 960 点）
+#[tauri::command]
+async fn plc_write_mitsubishi(
+    config: PlcConfig,
+    device: String,
+    head_number: u32,
+    values: Vec<i16>,
+) -> Result<(), String> {
+    mitsubishi::write_devices(&config, &device, head_number, &values)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// キーエンス PLC デバイス書き込み
 #[tauri::command]
 async fn plc_write_keyence(
@@ -118,6 +135,7 @@ pub fn run() {
             plc_read_mitsubishi,
             plc_read_keyence,
             plc_write_keyence,
+            plc_write_mitsubishi,
             mtls_get,
             mtls_post,
         ])

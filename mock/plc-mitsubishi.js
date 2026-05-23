@@ -38,52 +38,72 @@ function buildResponse(req) {
     return null;
   }
 
-  // コマンド: 0x0401 LE
   const command = req.readUInt16LE(11);
   const subCommand = req.readUInt16LE(13);
-  if (command !== 0x0401 || subCommand !== 0x0000) {
-    console.error(`[Mitsub. Mock] 未対応コマンド: 0x${command.toString(16)} / 0x${subCommand.toString(16)}`);
-    return null;
-  }
-
-  // 先頭デバイス番号（3 バイト LE）
   const headDevice = req[15] | (req[16] << 8) | (req[17] << 16);
   const deviceCode = req[18];
-  const numPoints = req.readUInt16LE(19);
-
   const devName = DEVICE[deviceCode];
+
   if (!devName) {
     console.error(`[Mitsub. Mock] 未対応デバイスコード: 0x${deviceCode.toString(16)}`);
     return null;
   }
 
   const store = memory[devName];
-  console.log(`[Mitsub. Mock] 読出要求: ${devName}${headDevice}  点数=${numPoints}`);
 
-  // 応答フレーム構築
-  // parse_batch_read_response の期待レイアウト:
-  //   [0..9)   : ヘッダ 9 バイト
-  //   [9..11)  : 終了コード 0x0000
-  //   [11..)   : i16 LE 値列
-  const dataLen = 2 + numPoints * 2; // 終了コード(2) + データ
-  const total = 9 + dataLen;
-  const res = Buffer.alloc(total, 0);
+  // 一括読出し (0x0401)
+  if (command === 0x0401 && subCommand === 0x0000) {
+    const numPoints = req.readUInt16LE(19);
+    console.log(`[Mitsub. Mock] 読出要求: ${devName}${headDevice}  点数=${numPoints}`);
 
-  res.writeUInt16LE(0x0080, 0);       // サブヘッダ（応答）
-  res.writeUInt8(0x00, 2);            // ネットワーク番号
-  res.writeUInt8(0xFF, 3);            // PC 番号
-  res.writeUInt16LE(0x03FF, 4);       // ユニット I/O 番号
-  res.writeUInt8(0x00, 6);            // 局番号
-  res.writeUInt16LE(dataLen, 7);      // データ長
-  res.writeUInt16LE(0x0000, 9);       // 終了コード（正常）
+    const dataLen = 2 + numPoints * 2;
+    const total = 9 + dataLen;
+    const res = Buffer.alloc(total, 0);
 
-  for (let i = 0; i < numPoints; i++) {
-    const addr = headDevice + i;
-    const val = addr < store.length ? store[addr] : 0;
-    res.writeInt16LE(val, 11 + i * 2);
+    res.writeUInt16LE(0x0080, 0);
+    res.writeUInt8(0x00, 2);
+    res.writeUInt8(0xFF, 3);
+    res.writeUInt16LE(0x03FF, 4);
+    res.writeUInt8(0x00, 6);
+    res.writeUInt16LE(dataLen, 7);
+    res.writeUInt16LE(0x0000, 9); // 終了コード: 正常
+
+    for (let i = 0; i < numPoints; i++) {
+      const addr = headDevice + i;
+      const val = addr < store.length ? store[addr] : 0;
+      res.writeInt16LE(val, 11 + i * 2);
+    }
+    return res;
   }
 
-  return res;
+  // 一括書込み (0x1401)
+  if (command === 0x1401 && subCommand === 0x0000) {
+    const numPoints = req.readUInt16LE(19);
+    console.log(`[Mitsub. Mock] 書込要求: ${devName}${headDevice}  点数=${numPoints}`);
+
+    for (let i = 0; i < numPoints; i++) {
+      const addr = headDevice + i;
+      const val = req.readInt16LE(21 + i * 2);
+      if (addr < store.length) {
+        store[addr] = val;
+        console.log(`  [Write] ${devName}${addr} = ${val}`);
+      }
+    }
+
+    // 書込みレスポンス: ヘッダ(9) + 終了コード(2)
+    const res = Buffer.alloc(11, 0);
+    res.writeUInt16LE(0x0080, 0);
+    res.writeUInt8(0x00, 2);
+    res.writeUInt8(0xFF, 3);
+    res.writeUInt16LE(0x03FF, 4);
+    res.writeUInt8(0x00, 6);
+    res.writeUInt16LE(0x0002, 7); // データ長: 2 (終了コードのみ)
+    res.writeUInt16LE(0x0000, 9); // 終了コード: 正常
+    return res;
+  }
+
+  console.error(`[Mitsub. Mock] 未対応コマンド: 0x${command.toString(16)} / 0x${subCommand.toString(16)}`);
+  return null;
 }
 
 const server = net.createServer((socket) => {
@@ -94,10 +114,13 @@ const server = net.createServer((socket) => {
   socket.on('data', (chunk) => {
     rxBuf = Buffer.concat([rxBuf, chunk]);
 
-    // 21 バイト揃ったら処理（1 接続 = 1 リクエスト）
-    while (rxBuf.length >= 21) {
-      const req = rxBuf.slice(0, 21);
-      rxBuf = rxBuf.slice(21);
+    // ヘッダ 9 バイト揃ったら dataLen を読み、フレーム全体を処理する
+    while (rxBuf.length >= 9) {
+      const dataLen = rxBuf.readUInt16LE(7);
+      const frameLen = 9 + dataLen;
+      if (rxBuf.length < frameLen) break;
+      const req = rxBuf.slice(0, frameLen);
+      rxBuf = rxBuf.slice(frameLen);
       const res = buildResponse(req);
       if (res) {
         socket.write(res);

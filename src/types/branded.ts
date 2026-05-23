@@ -86,3 +86,14 @@ export function asSanitizedUrl(raw: string): SanitizedUrl {
   new URL(raw) // 無効な場合は TypeError をスロー
   return raw as SanitizedUrl
 }
+
+/**
+ * 設定フォームから受け取った整数をアラームしきい値（PlcRawValue）に変換する。
+ * 設定境界（ユーザー入力）でのみ呼ぶこと。
+ */
+export function asThresholdValue(n: number): PlcRawValue {
+  if (!Number.isInteger(n)) {
+    throw new RangeError(`Threshold must be an integer: ${n}`)
+  }
+  return n as PlcRawValue
+}
