@@ -61,10 +61,38 @@ Slot roles are permanently fixed (never swap based on state):
 - Never swap slot indices based on state changes
 - Never allow container size to auto-shrink based on content
 
+## Desktop Layout Adaptation (2026-05-24)
+
+The original fixed-footer layout was designed for tablet portrait orientation.
+On desktop PC, the same fixed-slot principle is applied via a **left sidebar vertical column**:
+
+```
+┌──────────┬──────────────────────────────┬───────────┐
+│ LEFT     │         MAIN CONTENT         │ RIGHT     │
+│ SIDEBAR  │                              │ SIDEBAR   │
+│ (200px)  │                              │ (300px)   │
+│ VIEWS    │  Charts / KPI cards          │ Active    │
+│  Overview│                              │ Alarms    │
+│  Trends  │                              │           │
+│  Alarms  │                              │           │
+│ ──────── │                              │           │
+│ CONTROL  │                              │           │
+│ [Slot 0] │                              │           │
+│ [Slot 1] │                              │           │
+│ [Slot 2] │                              │           │
+│ [Slot 3] │                              │           │
+└──────────┴──────────────────────────────┴───────────┘
+│ STATUS BAR (28px): MODE | POLLING | TAG COUNT        │
+```
+
+Slot roles, indices, and immutability rules are identical to the footer variant.
+The footer becomes a slim status bar (mode indicator, polling info) with no control functions.
+
 ## Consequences
 
 - Combined with ADR-005 (SSOT): button `disabled` state is computed via getters derived from SSOT
-- For tablet portrait orientation, the footer is sticky at the bottom of the screen
+- For tablet portrait orientation, the footer sticky layout remains valid
+- For desktop, slots are in the left sidebar vertical column (same invariance rules apply)
 
 ## Related ADRs
 
