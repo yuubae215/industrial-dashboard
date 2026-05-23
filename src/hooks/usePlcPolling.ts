@@ -1,15 +1,17 @@
 import { useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { usePlcStore } from '../store/usePlcStore'
+import type { PlcConfig } from '../types/domain'
 
 interface PollingConfig {
   plcId: string
+  config: PlcConfig
+  device?: string
   startAddress: number
   count: number
   intervalMs: number
 }
 
-/** Tauri コマンド `plc_read_mitsubishi` の戻り値に対応する型 */
 interface McReadResult {
   values: number[]
 }
@@ -20,7 +22,14 @@ interface McReadResult {
  *
  * [非同期インフラ公準3] setInterval + 非ブロッキング invoke の組み合わせを使用。
  */
-export const usePlcPolling = ({ plcId, startAddress, count, intervalMs }: PollingConfig) => {
+export const usePlcPolling = ({
+  plcId,
+  config,
+  device = 'D',
+  startAddress,
+  count,
+  intervalMs,
+}: PollingConfig) => {
   const updateRawValues = usePlcStore((state) => state.updateRawValues)
   const setConnectionStatus = usePlcStore((state) => state.setConnectionStatus)
 
@@ -29,10 +38,16 @@ export const usePlcPolling = ({ plcId, startAddress, count, intervalMs }: Pollin
 
     const poll = async () => {
       try {
+        // Rust PlcConfig のフィールド名は snake_case のため timeout_ms を使用
         const result = await invoke<McReadResult>('plc_read_mitsubishi', {
-          plcId,
-          startAddress,
-          count,
+          config: {
+            host: config.host,
+            port: config.port,
+            timeout_ms: config.timeoutMs,
+          },
+          device,
+          head_number: startAddress,
+          num_points: count,
         })
         updateRawValues(plcId, startAddress, result.values)
         setConnectionStatus(plcId, 'connected')
@@ -45,5 +60,5 @@ export const usePlcPolling = ({ plcId, startAddress, count, intervalMs }: Pollin
     poll()
     const timerId = setInterval(poll, intervalMs)
     return () => clearInterval(timerId)
-  }, [plcId, startAddress, count, intervalMs, updateRawValues, setConnectionStatus])
+  }, [plcId, config.host, config.port, config.timeoutMs, device, startAddress, count, intervalMs, updateRawValues, setConnectionStatus])
 }
