@@ -1,15 +1,23 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import path from "path";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
+// @ts-expect-error process is a nodejs global
+const isGithubPages = process.env.GITHUB_PAGES === "true";
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
 
   // GitHub Pages deploy uses /industrial-dashboard/ base; Tauri requires relative ./
-  base: process.env.GITHUB_PAGES === "true" ? "/industrial-dashboard/" : "./",
+  base: isGithubPages ? "/industrial-dashboard/" : "./",
+
+  // GitHub Pages: @tauri-apps/api/core をデモ用モックに差し替え
+  resolve: isGithubPages
+    ? { alias: { "@tauri-apps/api/core": path.resolve("src/mocks/tauri-core.ts") } }
+    : {},
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

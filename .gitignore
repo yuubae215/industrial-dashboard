@@ -2,6 +2,9 @@
 node_modules/
 dist/
 
+# 環境変数ローカルオーバーライド（実機 IP 等の機密情報）
+.env*.local
+
 # モックサーバー生成証明書（機密情報 — gen-certs.sh で再生成すること）
 mock/certs/
 

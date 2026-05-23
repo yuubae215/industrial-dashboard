@@ -8,30 +8,19 @@ import { RealtimeTrendChart } from './RealtimeTrendChart'
 import { WatchWindow } from './WatchWindow'
 import { Footer } from './Footer'
 import { theme } from '../styles/theme'
-import { asPortNumber, asTimeoutMs, asThresholdValue } from '../types/branded'
-import type { PlcConfig, AlarmThreshold } from '../types/domain'
+import { asThresholdValue } from '../types/branded'
+import type { AlarmThreshold } from '../types/domain'
+import { MELSEC_CONFIG, KEYENCE_CONFIG, POLLING_INTERVAL_MS } from '../config/plc'
 
 // ---------------------------------------------------------------------------
-// 接続設定（設定ファイル/設定 UI から読み込む将来形を見据えて定数として集約）
+// 接続設定（.env.development / .env.production.local で切り替え）
 // ---------------------------------------------------------------------------
 
 const MELSEC_ID = 'melsec-line-a'
 const KEYENCE_ID = 'kv-line-b'
 const START_ADDRESS = 1000
 const READ_COUNT = 5
-const INTERVAL_MS = 500
-
-const MELSEC_CONFIG: PlcConfig = {
-  host: '127.0.0.1',
-  port: asPortNumber(8502),
-  timeoutMs: asTimeoutMs(3000),
-}
-
-const KEYENCE_CONFIG: PlcConfig = {
-  host: '127.0.0.1',
-  port: asPortNumber(8503),
-  timeoutMs: asTimeoutMs(3000),
-}
+const INTERVAL_MS = POLLING_INTERVAL_MS
 
 const MELSEC_THRESHOLD: AlarmThreshold = {
   plcId: MELSEC_ID,
@@ -75,6 +64,7 @@ export const Dashboard: React.FC = () => {
   usePlcPolling({
     plcId: MELSEC_ID,
     config: MELSEC_CONFIG,
+    protocol: 'mitsubishi',
     device: 'D',
     startAddress: START_ADDRESS,
     count: READ_COUNT,
@@ -83,7 +73,8 @@ export const Dashboard: React.FC = () => {
   usePlcPolling({
     plcId: KEYENCE_ID,
     config: KEYENCE_CONFIG,
-    device: 'D',
+    protocol: 'keyence',
+    device: 'DM',
     startAddress: START_ADDRESS,
     count: READ_COUNT,
     intervalMs: INTERVAL_MS,
