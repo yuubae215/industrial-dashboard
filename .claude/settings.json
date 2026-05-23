@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(npm run tauri)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(cargo check:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(git branch:*)",
+      "Bash(find . -name:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(pkg-config:*)"
+    ]
+  }
+}
