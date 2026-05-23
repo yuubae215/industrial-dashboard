@@ -50,8 +50,8 @@ export const usePlcPolling = ({
             timeout_ms: config.timeoutMs,
           },
           device,
-          head_number: startAddress,
-          num_points: count,
+          headNumber: startAddress,
+          numPoints: count,
         }
         const result = await invoke<McReadResult>(
           protocol === 'keyence' ? 'plc_read_keyence' : 'plc_read_mitsubishi',

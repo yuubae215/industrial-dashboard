@@ -23,6 +23,16 @@
 - **Count:** 2 / 3
 - **Status:** Monitoring — fixed in this PR; watching for recurrence
 
+## YC-002: Branded type bypass via `persist` middleware rehydration
+
+- **Discovered:** 2026-05-23
+- **Violates Axiom:** Axiom 2 (SSOT — branded type integrity at system boundary)
+- **Locations:**
+  - `src/store/usePlcConfigStore.ts` — `PortNumber` / `TimeoutMs` branded types in `PlcConfig` are serialized to localStorage as plain `number` via Zustand `persist`, and deserialized without passing through `asPortNumber()` / `asTimeoutMs()` constructors
+- **Pattern:** Zustand `persist` calls `JSON.parse` on rehydration and assigns fields directly to the typed state. TypeScript believes the rehydrated values are branded types, but at runtime they are plain `number`. This bypasses the validation enforced by constructor functions and violates Domain Layer Contract 2 ("Directly assigning a `number` to a branded type variable"). The practical risk is low because values are validated on write, but the compile-time guarantee is silently broken after each app restart.
+- **Count:** 1 / 3
+- **Status:** Monitoring — acceptable risk for now; escalate if pattern spreads to `PlcRawValue` persistence
+
 ---
 
 ## Ascended Patterns (Reference)

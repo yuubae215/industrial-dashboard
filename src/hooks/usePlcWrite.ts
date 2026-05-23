@@ -19,7 +19,7 @@ export function usePlcWrite() {
         timeout_ms: config.timeoutMs,
       },
       device,
-      head_number: headNumber,
+      headNumber,
       values,
     })
   }

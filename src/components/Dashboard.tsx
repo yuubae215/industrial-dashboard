@@ -2,22 +2,20 @@ import { useState, useEffect } from 'react'
 import { usePlcPolling } from '../hooks/usePlcPolling'
 import { useAlarmMonitor } from '../store/useAlarmStore'
 import { useAlarmStore } from '../store/useAlarmStore'
+import { usePlcConfigStore, MELSEC_PLC_ID, KEYENCE_PLC_ID } from '../store/usePlcConfigStore'
 import { AlarmPanel } from './AlarmPanel'
 import { MetricCard } from './MetricCard'
 import { RealtimeTrendChart } from './RealtimeTrendChart'
 import { WatchWindow } from './WatchWindow'
 import { Footer } from './Footer'
+import { ConnectionSettings } from './ConnectionSettings'
 import { theme } from '../styles/theme'
 import { asThresholdValue } from '../types/branded'
 import type { AlarmThreshold } from '../types/domain'
-import { MELSEC_CONFIG, KEYENCE_CONFIG, POLLING_INTERVAL_MS } from '../config/plc'
+import { POLLING_INTERVAL_MS } from '../config/plc'
 
-// ---------------------------------------------------------------------------
-// 接続設定（.env.development / .env.production.local で切り替え）
-// ---------------------------------------------------------------------------
-
-const MELSEC_ID = 'melsec-line-a'
-const KEYENCE_ID = 'kv-line-b'
+const MELSEC_ID = MELSEC_PLC_ID
+const KEYENCE_ID = KEYENCE_PLC_ID
 const START_ADDRESS = 1000
 const READ_COUNT = 5
 const INTERVAL_MS = POLLING_INTERVAL_MS
@@ -52,6 +50,10 @@ function useCurrentTime(): string {
 
 export const Dashboard: React.FC = () => {
   const [isTrendVisible, setIsTrendVisible] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  const melsecConfig = usePlcConfigStore((s) => s.configs[MELSEC_ID])
+  const keyenceConfig = usePlcConfigStore((s) => s.configs[KEYENCE_ID])
 
   // アラーム監視フックを明示的に初期化（モジュールロードの保証）
   useAlarmMonitor()
@@ -63,7 +65,7 @@ export const Dashboard: React.FC = () => {
   // PLC ポーリング開始
   usePlcPolling({
     plcId: MELSEC_ID,
-    config: MELSEC_CONFIG,
+    config: melsecConfig,
     protocol: 'mitsubishi',
     device: 'D',
     startAddress: START_ADDRESS,
@@ -72,7 +74,7 @@ export const Dashboard: React.FC = () => {
   })
   usePlcPolling({
     plcId: KEYENCE_ID,
-    config: KEYENCE_CONFIG,
+    config: keyenceConfig,
     protocol: 'keyence',
     device: 'DM',
     startAddress: START_ADDRESS,
@@ -177,14 +179,26 @@ export const Dashboard: React.FC = () => {
         )}
 
         {/* デバッグ Watch Window（保守モード時のみ表示） */}
-        <WatchWindow plcConfig={MELSEC_CONFIG} defaultPlcId={MELSEC_ID} />
+        <WatchWindow plcConfig={melsecConfig} defaultPlcId={MELSEC_ID} />
       </main>
 
       {/* フッター — 4 固定スロット（ADR-004） */}
       <Footer
         onTrendToggle={() => setIsTrendVisible((v) => !v)}
         isTrendVisible={isTrendVisible}
+        onSettingsOpen={() => setIsSettingsOpen(true)}
       />
+
+      {/* 接続設定モーダル */}
+      {isSettingsOpen && (
+        <ConnectionSettings
+          plcs={[
+            { plcId: MELSEC_ID, label: '三菱 MELSEC (mitsubishi)' },
+            { plcId: KEYENCE_ID, label: 'キーエンス KV (keyence)' },
+          ]}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      )}
     </div>
   )
 }

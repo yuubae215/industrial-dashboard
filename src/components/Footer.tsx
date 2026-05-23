@@ -5,6 +5,7 @@ import { TouchButton } from './TouchButton'
 interface FooterProps {
   onTrendToggle: () => void
   isTrendVisible: boolean
+  onSettingsOpen: () => void
 }
 
 /**
@@ -16,7 +17,7 @@ interface FooterProps {
  * Slot 2:        トレンド表示切替
  * Slot 3 (right): 保守モード ON/OFF
  */
-export const Footer: React.FC<FooterProps> = ({ onTrendToggle, isTrendVisible }) => {
+export const Footer: React.FC<FooterProps> = ({ onTrendToggle, isTrendVisible, onSettingsOpen }) => {
   const isMaintenanceMode = useDebugStore((s) => s.isMaintenanceMode)
   const toggleMaintenance = useDebugStore((s) => s.toggleMaintenanceMode)
 
@@ -37,8 +38,8 @@ export const Footer: React.FC<FooterProps> = ({ onTrendToggle, isTrendVisible })
       {/* Slot 0: 予約（戻る） — 現フェーズでは常に disabled */}
       <TouchButton label="← 戻る" disabled onClick={() => {}} />
 
-      {/* Slot 1: 設定 — 未実装のため disabled */}
-      <TouchButton label="設定" disabled onClick={() => {}} />
+      {/* Slot 1: 接続設定モーダルを開く */}
+      <TouchButton label="接続設定" onClick={onSettingsOpen} />
 
       {/* Slot 2: トレンド表示切替 */}
       <TouchButton
