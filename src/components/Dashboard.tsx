@@ -7,6 +7,8 @@ import { usePlcStore } from '../store/usePlcStore'
 import { RealtimeTrendChart } from './RealtimeTrendChart'
 import { WatchWindow } from './WatchWindow'
 import { LeftSidebar } from './LeftSidebar'
+import type { PlcHierarchyNode } from './LeftSidebar'
+import { Ribbon } from './Ribbon'
 import { RightSidebar } from './RightSidebar'
 import { StatusBar } from './StatusBar'
 import { ConnectionSettings } from './ConnectionSettings'
@@ -31,6 +33,26 @@ const MELSEC_THRESHOLD: AlarmThreshold = {
   L: asThresholdValue(500),
   LL: asThresholdValue(200),
 }
+
+// PLC network hierarchy for left sidebar
+const PLC_NODES: PlcHierarchyNode[] = [
+  {
+    plcId: MELSEC_ID,
+    label: 'MELSEC Q-Series',
+    protocolLabel: 'MC Protocol 3E Frame',
+    device: 'D',
+    startAddress: START_ADDRESS,
+    count: READ_COUNT,
+  },
+  {
+    plcId: KEYENCE_ID,
+    label: 'Keyence KV-8000',
+    protocolLabel: 'Upper Link',
+    device: 'DM',
+    startAddress: START_ADDRESS,
+    count: READ_COUNT,
+  },
+]
 
 function useCurrentTime(): string {
   const [time, setTime] = useState(() =>
@@ -112,7 +134,6 @@ export const Dashboard: React.FC = () => {
   })
 
   const currentTime = useCurrentTime()
-  const tagCount = READ_COUNT * 2
 
   return (
     <div
@@ -126,12 +147,12 @@ export const Dashboard: React.FC = () => {
         overflow: 'hidden',
       }}
     >
-      {/* ── Header ───────────────────────────────────────────── */}
+      {/* ── Title bar / Header ────────────────────────────────── */}
       <header
         style={{
           flexShrink: 0,
-          padding: '0 24px',
-          height: 52,
+          height: 48,
+          padding: '0 20px',
           background: theme.bgHeader,
           borderBottom: `1px solid ${theme.border}`,
           display: 'flex',
@@ -140,16 +161,9 @@ export const Dashboard: React.FC = () => {
           gap: 16,
         }}
       >
-        {/* Title */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
-          <span
-            style={{
-              fontSize: theme.fs.md,
-              fontWeight: 700,
-              color: theme.text,
-              letterSpacing: '0.06em',
-            }}
-          >
+        {/* App title */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+          <span style={{ fontSize: theme.fs.md, fontWeight: 700, color: theme.text, letterSpacing: '0.06em' }}>
             INDUSTRIAL DASHBOARD
           </span>
           <span style={{ fontSize: theme.fs.xs, color: theme.textMuted, letterSpacing: '0.04em' }}>
@@ -157,44 +171,36 @@ export const Dashboard: React.FC = () => {
           </span>
         </div>
 
-        {/* Center: alarm chip */}
+        {/* Active alarm chip */}
         {activeAlarmCount > 0 && (
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              padding: '4px 10px',
-              borderRadius: 4,
-              background: `${theme.critical}22`,
+              padding: '3px 10px',
+              borderRadius: 3,
+              background: `${theme.critical}20`,
               border: `1px solid ${theme.critical}`,
             }}
           >
             <span
               style={{
-                width: 7,
-                height: 7,
+                width: 6,
+                height: 6,
                 borderRadius: '50%',
                 background: theme.critical,
                 display: 'inline-block',
               }}
             />
-            <span
-              style={{
-                fontSize: theme.fs.xs,
-                fontWeight: 700,
-                color: theme.critical,
-                letterSpacing: '0.08em',
-                fontFamily: theme.fontMono,
-              }}
-            >
+            <span style={{ fontSize: theme.fs.xs, fontWeight: 700, color: theme.critical, letterSpacing: '0.08em' }}>
               {activeAlarmCount} ACTIVE ALARM{activeAlarmCount !== 1 ? 'S' : ''}
             </span>
           </div>
         )}
 
-        {/* Right: connection badges + clock */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {/* Connection badges + clock */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ display: 'flex', gap: 6 }}>
             {(
               [
@@ -208,11 +214,11 @@ export const Dashboard: React.FC = () => {
                   fontSize: theme.fs.xs,
                   fontFamily: theme.fontMono,
                   fontWeight: 700,
-                  padding: '3px 8px',
+                  padding: '2px 7px',
                   borderRadius: 3,
                   border: `1px solid ${statusColor[status]}`,
                   color: statusColor[status],
-                  letterSpacing: '0.06em',
+                  letterSpacing: '0.05em',
                 }}
               >
                 {label}: {statusLabel[status] ?? status.toUpperCase()}
@@ -226,7 +232,7 @@ export const Dashboard: React.FC = () => {
               color: theme.accent,
               fontWeight: 700,
               letterSpacing: '0.04em',
-              minWidth: 70,
+              minWidth: 68,
               textAlign: 'right',
             }}
           >
@@ -235,46 +241,37 @@ export const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      {/* ── Body: left sidebar + main + right sidebar ─────────── */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <LeftSidebar
-          onTrendToggle={() => setIsTrendVisible((v) => !v)}
-          isTrendVisible={isTrendVisible}
-          onSettingsOpen={() => setIsSettingsOpen(true)}
-        />
+      {/* ── Ribbon toolbar ────────────────────────────────────── */}
+      <Ribbon
+        isTrendVisible={isTrendVisible}
+        onTrendToggle={() => setIsTrendVisible((v) => !v)}
+        onSettingsOpen={() => setIsSettingsOpen(true)}
+      />
 
+      {/* ── Body ──────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Navigation pane: PLC hierarchy tree */}
+        <LeftSidebar nodes={PLC_NODES} />
+
+        {/* Main content area */}
         <main
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '20px 24px',
+            padding: '16px 20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 20,
+            gap: 16,
           }}
         >
           {isTrendVisible && (
             <section>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 12,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: theme.fs.xs,
-                    fontWeight: 700,
-                    color: theme.textMuted,
-                    letterSpacing: '0.1em',
-                  }}
-                >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: theme.fs.xs, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.1em' }}>
                   REALTIME TREND
                 </span>
                 <span style={{ fontSize: theme.fs.xs, color: theme.textMuted }}>
-                  {MELSEC_ID} D{START_ADDRESS}
+                  {MELSEC_ID} D{START_ADDRESS} &mdash; last 60s
                 </span>
                 <div style={{ flex: 1, height: 1, background: theme.border }} />
               </div>
@@ -291,11 +288,12 @@ export const Dashboard: React.FC = () => {
           <WatchWindow plcConfig={melsecConfig} defaultPlcId={MELSEC_ID} />
         </main>
 
+        {/* Alarm panel */}
         <RightSidebar />
       </div>
 
-      {/* ── Status bar ──────────────────────────────────────────── */}
-      <StatusBar tagCount={tagCount} />
+      {/* ── Status bar ────────────────────────────────────────── */}
+      <StatusBar tagCount={READ_COUNT * 2} />
 
       {isSettingsOpen && (
         <ConnectionSettings
