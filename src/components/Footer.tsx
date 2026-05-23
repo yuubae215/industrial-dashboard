@@ -35,22 +35,22 @@ export const Footer: React.FC<FooterProps> = ({ onTrendToggle, isTrendVisible, o
         zIndex: 100,
       }}
     >
-      {/* Slot 0: 予約（戻る） — 現フェーズでは常に disabled */}
-      <TouchButton label="← 戻る" disabled onClick={() => {}} />
+      {/* Slot 0: reserved (back) — always disabled in this phase */}
+      <TouchButton label="<- Back" disabled onClick={() => {}} />
 
-      {/* Slot 1: 接続設定モーダルを開く */}
-      <TouchButton label="接続設定" onClick={onSettingsOpen} />
+      {/* Slot 1: open connection settings modal */}
+      <TouchButton label="Settings" onClick={onSettingsOpen} />
 
-      {/* Slot 2: トレンド表示切替 */}
+      {/* Slot 2: trend visibility toggle */}
       <TouchButton
-        label={isTrendVisible ? 'トレンド非表示' : 'トレンド表示'}
+        label={isTrendVisible ? 'Hide Trend' : 'Trend'}
         variant="accent"
         onClick={onTrendToggle}
       />
 
-      {/* Slot 3: 保守モード切替 */}
+      {/* Slot 3: maintenance mode toggle */}
       <TouchButton
-        label={isMaintenanceMode ? '保守モード OFF' : '保守モード ON'}
+        label={isMaintenanceMode ? 'Maintenance OFF' : 'Maintenance ON'}
         variant={isMaintenanceMode ? 'critical' : 'normal'}
         onClick={toggleMaintenance}
       />

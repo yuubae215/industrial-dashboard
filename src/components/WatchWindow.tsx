@@ -60,7 +60,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
     if (!pendingWrite || slot.address === null || slot.plcId === null) return
     const numVal = parseInt(pendingWrite.inputValue, 10)
     if (isNaN(numVal)) {
-      setWriteError('整数値を入力してください')
+      setWriteError('Please enter an integer value')
       return
     }
     try {
@@ -90,16 +90,16 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
         }}
       >
         <span style={{ fontWeight: 700, color: theme.accent, fontSize: 14 }}>
-          デバッグ Watch Window (GxWorks3 互換)
+          Debug Watch Window
         </span>
         <span style={{ color: theme.textMuted, fontSize: 11 }}>
-          対象 PLC: {defaultPlcId} — アドレス列に D1000 等を入力でモニタ開始
+          Target PLC: {defaultPlcId} — Enter D1000 etc. to start monitoring
         </span>
       </div>
 
       {writeError && (
         <div style={{ color: theme.critical, fontSize: 12, marginBottom: 8 }}>
-          書き込みエラー: {writeError}
+          Write error: {writeError}
         </div>
       )}
 
@@ -109,10 +109,10 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
         <thead>
           <tr style={{ background: '#2D3748', color: theme.textMuted }}>
             <th style={thStyle}>No.</th>
-            <th style={thStyle}>デバイス</th>
-            <th style={{ ...thStyle, color: theme.normal }}>現在値</th>
-            <th style={thStyle}>コメント</th>
-            <th style={thStyle}>操作</th>
+            <th style={thStyle}>Device</th>
+            <th style={{ ...thStyle, color: theme.normal }}>Value</th>
+            <th style={thStyle}>Comment</th>
+            <th style={thStyle}>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -165,7 +165,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                     onChange={(e) =>
                       updateSlot(slot.index as WatchSlotIndex, { comment: e.target.value })
                     }
-                    placeholder="コメント (例: ライン A インターロック)"
+                    placeholder="Comment (e.g. Line A interlock)"
                     style={{ ...inputStyle, width: '95%' }}
                   />
                 </td>
@@ -183,7 +183,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                         autoFocus
                       />
                       <TouchButton
-                        label="確定"
+                        label="Confirm"
                         variant="critical"
                         onClick={() => handleConfirmWrite(slot)}
                         style={{ minHeight: 32, minWidth: 48, fontSize: 12 }}
@@ -196,7 +196,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                     </span>
                   ) : (
                     <TouchButton
-                      label="値変更"
+                      label="Write"
                       variant="warning"
                       onClick={() =>
                         setPendingWrite({

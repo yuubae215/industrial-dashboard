@@ -6,7 +6,7 @@ import { theme, alarmLevelColor } from '../styles/theme'
 import { TouchButton } from './TouchButton'
 
 const levelLabel: Record<AlarmLevel, string> = {
-  HH: '上限限界', H: '上限', L: '下限', LL: '下限限界',
+  HH: 'High-High', H: 'High', L: 'Low', LL: 'Low-Low',
 }
 
 export const AlarmPanel: React.FC = () => {
@@ -75,14 +75,14 @@ export const AlarmPanel: React.FC = () => {
             </span>
             {alarm.acknowledgedAt === null ? (
               <TouchButton
-                label="確認"
+                label="ACK"
                 variant="warning"
                 onClick={() => acknowledgeAlarm(alarm.id)}
                 style={{ minHeight: 36, minWidth: 60, fontSize: 12 }}
               />
             ) : (
               <span style={{ color: theme.textMuted, fontSize: 11, fontFamily: theme.fontMono }}>
-                確認済
+                ACK'd
               </span>
             )}
           </div>

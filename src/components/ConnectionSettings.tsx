@@ -50,7 +50,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
       const { host, port, timeoutMs } = forms[plcId]
 
       if (!host.trim()) {
-        newErrors[plcId] = 'ホストを入力してください'
+        newErrors[plcId] = 'Host is required'
         hasError = true
         continue
       }
@@ -59,7 +59,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
       try {
         asPortNumber(portNum)
       } catch {
-        newErrors[plcId] = 'ポートは 1–65535 の整数を入力してください'
+        newErrors[plcId] = 'Port must be an integer between 1 and 65535'
         hasError = true
         continue
       }
@@ -68,7 +68,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
       try {
         asTimeoutMs(timeoutNum)
       } catch {
-        newErrors[plcId] = 'タイムアウトは正の整数 (ms) を入力してください'
+        newErrors[plcId] = 'Timeout must be a positive integer (ms)'
         hasError = true
         continue
       }
@@ -125,7 +125,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
         }}
       >
         <h2 style={{ margin: '0 0 20px', fontSize: 16, color: theme.text, fontWeight: 700 }}>
-          接続設定
+          Connection Settings
         </h2>
 
         {plcs.map(({ plcId, label }) => (
@@ -135,7 +135,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 130px', gap: 12 }}>
               <div>
-                <label style={labelStyle}>ホスト / IP アドレス</label>
+                <label style={labelStyle}>Host / IP Address</label>
                 <input
                   style={inputStyle}
                   type="text"
@@ -145,7 +145,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
                 />
               </div>
               <div>
-                <label style={labelStyle}>ポート</label>
+                <label style={labelStyle}>Port</label>
                 <input
                   style={inputStyle}
                   type="number"
@@ -156,7 +156,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
                 />
               </div>
               <div>
-                <label style={labelStyle}>タイムアウト (ms)</label>
+                <label style={labelStyle}>Timeout (ms)</label>
                 <input
                   style={inputStyle}
                   type="number"
@@ -198,7 +198,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
               fontSize: 14,
             }}
           >
-            キャンセル
+            Cancel
           </button>
           <button
             onClick={handleSave}
@@ -215,7 +215,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
               fontWeight: 700,
             }}
           >
-            保存して適用
+            Save & Apply
           </button>
         </div>
       </div>

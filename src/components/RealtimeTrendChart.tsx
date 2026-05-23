@@ -42,7 +42,7 @@ export const RealtimeTrendChart: React.FC<RealtimeTrendChartProps> = ({
   )
 
   const formatTime = (ts: number) =>
-    new Date(ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 
   if (chartData.length === 0) {
     return (
@@ -92,7 +92,7 @@ export const RealtimeTrendChart: React.FC<RealtimeTrendChartProps> = ({
               color: theme.text,
             }}
             labelFormatter={(t) => formatTime(t as number)}
-            formatter={(v) => [`${v}${unit}`, '現在値']}
+            formatter={(v) => [`${v}${unit}`, 'Value']}
           />
           {/* isAnimationActive={false} は必須 — 500ms 更新でアニメーションが連続発火し CPU を消耗するため */}
           <Line
