@@ -44,6 +44,26 @@ export const RealtimeTrendChart: React.FC<RealtimeTrendChartProps> = ({
   const formatTime = (ts: number) =>
     new Date(ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
+  if (chartData.length === 0) {
+    return (
+      <div
+        style={{
+          background: theme.bgCard,
+          borderRadius: 8,
+          padding: '16px 8px 8px',
+          height: 232,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <span style={{ color: theme.textMuted, fontSize: 12, fontFamily: theme.fontMono }}>
+          Waiting for data…
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div style={{ background: theme.bgCard, borderRadius: 8, padding: '16px 8px 8px' }}>
       <ResponsiveContainer width="100%" height={200}>

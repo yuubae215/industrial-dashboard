@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePlcPolling } from '../hooks/usePlcPolling'
 import { useAlarmMonitor } from '../store/useAlarmStore'
 import { useAlarmStore } from '../store/useAlarmStore'
@@ -50,10 +50,10 @@ const MELSEC_THRESHOLD: AlarmThreshold = {
 
 function useCurrentTime(): string {
   const [time, setTime] = useState(() => new Date().toLocaleTimeString('ja-JP'))
-  useState(() => {
+  useEffect(() => {
     const id = setInterval(() => setTime(new Date().toLocaleTimeString('ja-JP')), 1000)
     return () => clearInterval(id)
-  })
+  }, [])
   return time
 }
 
@@ -69,7 +69,7 @@ export const Dashboard: React.FC = () => {
 
   // しきい値を起動時に登録（設定 UI が実装されるまでの初期値）
   const setThreshold = useAlarmStore((s) => s.setThreshold)
-  useState(() => { setThreshold(MELSEC_THRESHOLD) })
+  useEffect(() => { setThreshold(MELSEC_THRESHOLD) }, [setThreshold])
 
   // PLC ポーリング開始
   usePlcPolling({

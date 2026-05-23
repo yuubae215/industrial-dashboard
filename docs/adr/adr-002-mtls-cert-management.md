@@ -1,61 +1,57 @@
-# ADR-002: mTLS クライアント証明書の管理方式
+# ADR-002: mTLS Client Certificate Management
 
-## ステータス
+## Status
 
-承認済み（Accepted: 2026-05-23）
+Accepted (2026-05-23)
 
-## コンテキスト（背景）
+## Context
 
-ローカル Web サーバーとの mTLS（相互 TLS 認証）通信において、パスワードで保護された .p12（PKCS#12）形式のクライアント証明書を使用する。
+For mTLS (mutual TLS authentication) communication with the local web server, we use password-protected .p12 (PKCS#12) format client certificates.
 
-証明書の取り扱いについて、セキュリティと運用性のバランスをどう設計するか決定が必要。
+A decision is needed on how to handle certificates, balancing security and operational usability.
 
-要件：
-- 証明書ファイル形式：.p12（パスワード保護あり）
-- 利用環境：工場の専用 PC（基本的に 1 台 = 1 オペレーター想定）
-- セキュリティポリシー：パスワードをプレーンテキストでファイルに保存しない
+Requirements:
+- Certificate format: .p12 (password-protected)
+- Operating environment: Dedicated factory PCs (typically one PC = one operator)
+- Security policy: Passwords must not be stored in plaintext files
 
-## 検討した選択肢
+## Options Considered
 
-### 方法A: アプリが直接 .p12 ファイルを読み込む（起動時パスワード入力）
+### Method A: App reads .p12 file directly (password entry at startup)
 
-アプリ起動時にパスワード入力モーダルを表示し、指定パスから .p12 を読み込む。
-パスワードはメモリ上（Rust 内）のみで保持し、アプリ終了とともに破棄する。
+Display a password input modal at app startup, load .p12 from the specified path. Password is held only in Rust memory and discarded on app exit.
 
-- **メリット:** シンプル、OSへの依存がない、実装が最も容易
-- **デメリット:** 毎回パスワード入力が必要（オペレーター負担）
+- **Pros:** Simple, no OS dependency, easiest to implement
+- **Cons:** Requires password entry on every startup (operator burden)
 
-### 方法B: OS の資格情報マネージャーにパスワードを保存
+### Method B: Store password in OS credential manager
 
-初回起動時にパスワードを入力させ、Windows 資格情報マネージャー（または Mac キーチェーン）に暗号化して保存する。
-以降の起動では OS から自動取得する。Rust の `keyring` クレートで実装。
+Prompt for password at first startup, then store it encrypted in Windows Credential Manager (or Mac Keychain). Retrieve automatically on subsequent startups. Implemented via the Rust `keyring` crate.
 
-- **メリット:** 2 回目以降はパスワード入力不要、OS レベルの暗号化で安全
-- **デメリット:** OS ごとの実装差異、`keyring` クレートへの依存
+- **Pros:** No password entry after the first time, OS-level encryption
+- **Cons:** OS-specific implementation differences, dependency on `keyring` crate
 
-### 方法C: OS の証明書ストアにインポート済みの証明書を使用
+### Method C: Use a certificate already imported into the OS certificate store
 
-証明書を Windows 証明書ストア（またはMacキーチェーン）にインポートしておき、
-アプリは証明書のコモンネーム等で検索して使用する。
-`native-tls` クレートが OS の TLS ライブラリ（SChannel / Secure Transport）と連携。
+Import the certificate into Windows Certificate Store (or Mac Keychain) in advance; the app finds it by Common Name or similar. `native-tls` crate interfaces with the OS TLS library (SChannel / Secure Transport).
 
-- **メリット:** アプリがパスワードを一切扱わない（インポート時に OS が解除済み）
-- **デメリット:** 証明書の更新・管理が OS 側の操作になり、自動化しにくい
+- **Pros:** App never handles the password (OS resolved it at import time)
+- **Cons:** Certificate renewal/management becomes an OS-side operation, harder to automate
 
-## 意思決定
+## Decision
 
-**フェーズ1: 方法A（起動時パスワード入力 + メモリ保持）を採用する。**
+**Phase 1: Adopt Method A (password entry at startup + in-memory retention).**
 
-将来的な要件に応じて方法Bへ移行することを検討する。
+Migration to Method B may be considered depending on future requirements.
 
-## 根拠
+## Rationale
 
-1. **産業用 PC は専用機が多い:** 1 台 = 特定作業員が担当するケースが多く、起動時の一度のパスワード入力は許容範囲
-2. **実装のシンプルさ:** reqwest + native-tls の `Identity::from_pkcs12_der` で直接実装できる
-3. **依存最小化:** OS 固有の証明書ストア操作への依存がなく、Windows / Mac / Linux で同一コードが動作する
-4. **セキュリティ担保:** パスワードはメモリ内のみで保持し、ファイル・ログへの書き出しを禁止する
+1. **Industrial PCs are typically dedicated machines:** One PC = one assigned operator, so a single password entry at startup is acceptable
+2. **Implementation simplicity:** Can be implemented directly with `reqwest` + `native-tls`'s `Identity::from_pkcs12_der`
+3. **Minimal dependencies:** No dependency on OS-specific certificate store operations; same code runs on Windows / Mac / Linux
+4. **Security guarantee:** Password is retained only in memory; writing to files or logs is prohibited
 
-## 実装方針
+## Implementation
 
 ```rust
 // src-tauri/src/mtls/mod.rs
@@ -68,7 +64,7 @@ pub async fn build_mtls_client(
 ) -> Result<Client, String> {
     let cert_bytes = std::fs::read(cert_path).map_err(|e| e.to_string())?;
     let identity = Identity::from_pkcs12_der(&cert_bytes, password)
-        .map_err(|e| format!("証明書エラー: {}", e))?;
+        .map_err(|e| format!("Certificate error: {}", e))?;
     
     Client::builder()
         .identity(identity)
@@ -78,17 +74,17 @@ pub async fn build_mtls_client(
 }
 ```
 
-## セキュリティ上の注意事項
+## Security Notes
 
-- パスワードを `String` として Tauri Command に渡す際、ログへの出力・エラーメッセージへの埋め込みを禁止する
-- .p12 ファイルのパスはユーザーが OS のファイルダイアログで選択する形式とし、アプリにハードコードしない
-- `danger_accept_invalid_certs(true)` は開発時のみ使用し、本番ではローカル CA 証明書を明示的に信頼する形に切り替える
+- When passing passwords as `String` to Tauri Commands, logging or embedding in error messages is prohibited
+- The .p12 file path must be selected by the user via the OS file dialog; never hardcode it in the app
+- `danger_accept_invalid_certs(true)` is for development only; production must switch to explicitly trusting a local CA certificate
 
-## 影響
+## Consequences
 
-- アプリ起動時に証明書パスとパスワードの入力 UI が必要（ADR-004 で UI 設計を決定）
+- App startup requires a UI for entering certificate path and password (UI design decided in ADR-004)
 
-## 関連 ADR
+## Related ADRs
 
-- [ADR-001](./adr-001-framework.md) - フレームワーク選定
-- [ADR-003](./adr-003-plc-connection.md) - PLC 接続管理方式
+- [ADR-001](./adr-001-framework.md) - Framework selection
+- [ADR-003](./adr-003-plc-connection.md) - PLC connection management

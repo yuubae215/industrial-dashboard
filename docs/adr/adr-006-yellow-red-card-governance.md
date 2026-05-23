@@ -1,98 +1,98 @@
-# ADR-006: イエロー/レッドカード・ガバナンスシステム
+# ADR-006: Yellow/Red Card Governance System
 
-## ステータス
+## Status
 
-承認済み（Accepted: 2026-05-23）
+Accepted (2026-05-23)
 
-## コンテキスト（背景）
+## Context
 
-> **これはランタイムのUIアラート仕様ではない。**  
-> **コードの品質を AI・人間が自律的に統治するための「開発プロセスのルール」である。**
+> **This is not a runtime UI alert specification.**
+> **This is a "development process rule" for AI and humans to autonomously govern code quality.**
 
-複雑なフロントエンドアプリでは、設計哲学（PHILOSOPHY.md）の公理を破る実装パターンが少しずつ忍び込む。一度忍び込んだアンチパターンは、他の開発者（または AI）がそれを「既存のコード」として参照し、同じパターンを別箇所に複製することで指数関数的に拡散する。
+In complex frontend applications, implementation patterns that violate the design philosophy (PHILOSOPHY.md) axioms gradually creep in. Once an antipattern is introduced, other developers (or AI) reference it as "existing code" and replicate the same pattern elsewhere, causing exponential proliferation.
 
-この問題に対し、「コードレビューで都度指摘する」だけのアドホック対応では限界がある。アンチパターンの頻出度が閾値を超えた瞬間に、それを「個別レビューの対象」から「システム共通の禁止規約（法律）」へ自動昇華させる仕組みが必要。
+Ad-hoc countermeasures like "point it out in code review each time" have limits. We need a mechanism that, the moment an antipattern's frequency crosses a threshold, automatically elevates it from "individual review target" to "shared system prohibition (law)."
 
-## 意思決定
+## Decision
 
-以下の 3 段階ガバナンスサイクルを採用する。
+Adopt the following 3-stage governance cycle.
 
-### 🟨 イエローカード（設計負債の警告）
+### 🟨 Yellow Card (Design Debt Warning)
 
-**発行条件：** 憲法（`docs/contracts/`）に未記載だが、三大公理を脅かす実装パターンを発見した時点。
+**Trigger:** An implementation pattern that threatens the Three Axioms but is not yet listed in the contracts (`docs/contracts/`).
 
-**発行者：** コードレビュアー（人間 / AI）
+**Issuer:** Code reviewer (human / AI)
 
-**運用：**
-1. PR のコメントまたは `docs/governance/yellow-cards.md` にパターンを記録する
-2. 同一パターンが別箇所で発見されるたびにカウントをインクリメントする
-3. カウント ≥ 3 でレッドカード化の検討を開始する
+**Process:**
+1. Record the pattern in a PR comment or `docs/governance/yellow-cards.md`
+2. Increment the count each time the same pattern is found elsewhere
+3. When count ≥ 3, begin evaluation for red card escalation
 
-**イエローカード例（industrial-dashboard 固有）：**
-- `mitsubishi.rs` または `keyence.rs` 内にポーリング間隔・リトライロジックを書く（プロトコル層に意味論を混入）
-- React コンポーネント内で `useState` の前回値と新規 PLC 値を加算する（差分計算の混入）
-- Tauri コマンドの引数に生の IP アドレス文字列をバリデーションなしで渡す（ブランド型の未使用）
+**Yellow card examples (industrial-dashboard specific):**
+- Writing polling interval or retry logic inside `mitsubishi.rs` or `keyence.rs` (mixing semantics into the protocol layer)
+- Adding delta from the previous `useState` value to a new PLC value inside a React component (mixing delta calculation)
+- Passing raw IP address strings to Tauri command arguments without validation (unused branded types)
 
-### 🟥 レッドカード（マージ拒絶）
+### 🟥 Red Card (Merge Rejection)
 
-**発行条件：**
-1. `docs/contracts/` に明記された禁止事項の違反、または
-2. 同一イエローパターンの累積カウントが 3 を超えた場合
+**Trigger:**
+1. Violation of a prohibition explicitly stated in `docs/contracts/`, or
+2. Cumulative yellow card count for the same pattern exceeds 3
 
-**発行者：** コードレビュアー（人間 / AI）。CI での自動拒否が望ましい。
+**Issuer:** Code reviewer (human / AI). Automated CI rejection is preferred.
 
-**運用：** マージをブロックし、違反箇所のリファクタリングを要求する。
+**Process:** Block the merge and require refactoring of the violating code.
 
-### 👑 フィロソフィへの昇華（自律統治サイクル）
+### 👑 Ascension to Philosophy (Autonomous Governance Cycle)
 
-**発動条件：** レッドカード化した頻出アンチパターンが確定した時。
+**Trigger:** A frequently-occurring antipattern is confirmed as a red card.
 
-**手順：**
-
-```
-Step 1: docs/contracts/<該当レイヤー>.md に禁止条項を追記する
-Step 2: CLAUDE.md の「絶対禁止事項」セクションに 1 行追記する
-Step 3: docs/governance/yellow-cards.md から該当エントリを削除し、
-        「contracts に昇華済み」とマークする
-Step 4: 既存コードをリファクタリングしてアンチパターンを根絶する
-```
+**Steps:**
 
 ```
-イエロー発生 → 別箇所で再発(×3) → レッドカード確定
+Step 1: Add a prohibition clause to docs/contracts/<relevant-layer>.md
+Step 2: Add one line to the "Absolute Prohibitions" section of CLAUDE.md
+Step 3: Remove the entry from docs/governance/yellow-cards.md,
+        mark as "ascended to contracts"
+Step 4: Refactor existing code to eradicate the antipattern
+```
+
+```
+Yellow card → recurs elsewhere (×3) → Red card confirmed
         ↓
-  docs/contracts/ に禁止条項追記（憲法改正）
+  Add prohibition clause to docs/contracts/ (constitutional amendment)
         ↓
-  CLAUDE.md の「絶対禁止事項」に昇華（AI の行動指針に永続化）
+  Ascend to CLAUDE.md "Absolute Prohibitions" (permanently embedded in AI behavior)
         ↓
-  CI・AI が静的に自動ブロック（ガードレール化）
+  CI and AI automatically block (guardrail established)
 ```
 
-## ガバナンス記録ファイル
+## Governance Record File
 
-`docs/governance/yellow-cards.md` を管理する。フォーマット：
+Manage `docs/governance/yellow-cards.md`. Format:
 
 ```markdown
-## YC-001: プロトコル層への意味論混入
+## YC-001: Semantics mixed into protocol layer
 
-- **発見日:** YYYY-MM-DD
-- **場所:** src-tauri/src/plc/mitsubishi.rs:42
-- **パターン:** ポーリング間隔の条件分岐がプロトコル実装内に存在
-- **カウント:** 1 / 3
-- **ステータス:** 監視中
+- **Discovered:** YYYY-MM-DD
+- **Location:** src-tauri/src/plc/mitsubishi.rs:42
+- **Pattern:** Polling interval conditional branch exists inside protocol implementation
+- **Count:** 1 / 3
+- **Status:** Monitoring
 ```
 
-## 根拠
+## Rationale
 
-1. **指数関数的拡散の遮断:** アンチパターンを「個別指摘」で終わらせず、ルール化することで再発を根絶する
-2. **AI の自律統治への適合:** CLAUDE.md に禁止事項を追記することで、Coding Agent が次回から同じパターンを生成しなくなる
-3. **法の進化:** プロジェクト固有のアンチパターンは事前に完全予測できない。実際の違反から学習して憲法を進化させる仕組みが必要
+1. **Block exponential proliferation:** Antipatterns become rules rather than individual corrections, preventing recurrence
+2. **Alignment with AI autonomous governance:** Adding prohibitions to CLAUDE.md prevents the Coding Agent from generating the same patterns in future sessions
+3. **Evolutionary law:** Project-specific antipatterns cannot be fully predicted in advance. A mechanism that learns from actual violations and evolves the constitution is necessary
 
-## 影響
+## Consequences
 
-- `docs/governance/` ディレクトリを新設する（初期ファイル: `yellow-cards.md`）
-- PR テンプレートにイエローカードのチェック項目を追加することを推奨
+- Create `docs/governance/` directory (initial file: `yellow-cards.md`)
+- Adding yellow card checklist items to the PR template is recommended
 
-## 関連 ADR
+## Related ADRs
 
-- [PHILOSOPHY.md](../../PHILOSOPHY.md) — コードガバナンスの公理
-- [docs/contracts/](../contracts/) — 全レイヤーの禁止条項
+- [PHILOSOPHY.md](../../PHILOSOPHY.md) — Code governance axioms
+- [docs/contracts/](../contracts/) — All layer prohibitions

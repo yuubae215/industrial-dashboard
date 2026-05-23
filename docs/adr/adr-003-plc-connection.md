@@ -1,113 +1,110 @@
-# ADR-003: PLC 接続管理方式（三菱 MC プロトコル / キーエンス上位リンク）
+# ADR-003: PLC Connection Management (Mitsubishi MC Protocol / Keyence Upper Link)
 
-## ステータス
+## Status
 
-承認済み（Accepted: 2026-05-23）
+Accepted (2026-05-23)
 
-## コンテキスト（背景）
+## Context
 
-工場内の PLC（三菱 MELSEC シリーズ / キーエンス KV シリーズ）と TCP 通信を行う。
-接続の維持方式として「常時接続」と「都度接続」のどちらを採用するか決定が必要。
+We communicate via TCP with PLCs in the factory (Mitsubishi MELSEC series / Keyence KV series). A decision is needed on whether to maintain persistent connections or connect on-demand.
 
-対象プロトコル：
-- **三菱 MELSEC:** MC プロトコル（3E フレーム、バイナリモード、TCP）
-- **キーエンス KV シリーズ:** 上位リンク通信（ASCII テキストベース、TCP）
+Target protocols:
+- **Mitsubishi MELSEC:** MC Protocol (3E frame, binary mode, TCP)
+- **Keyence KV series:** Upper Link communication (ASCII text-based, TCP)
 
-## 検討した選択肢
+## Options Considered
 
-### 方法A: ポーリング方式（常時接続 + 定期読み出し）
+### Method A: Polling (persistent connection + periodic reads)
 
-アプリ起動時に TCP コネクションを確立し、維持したまま一定間隔（例: 500ms）で定期的にデータを読み出す。
-取得したデータは Tauri の `emit` で フロントエンドに配信する。
+Establish a TCP connection at app startup, maintain it, and periodically read data at a fixed interval (e.g., 500ms). Distribute acquired data to the frontend via Tauri `emit`.
 
-- **メリット:** レイテンシが低い、接続確立コストが不要、リアルタイム性が高い
-- **デメリット:** 接続断時の再接続ロジックが必要、PLC 側の接続数制限に注意
+- **Pros:** Low latency, no connection establishment overhead, high real-time performance
+- **Cons:** Requires reconnection logic on disconnect; must stay within PLC connection count limits
 
-### 方法B: コマンド都度接続（オンデマンド接続）
+### Method B: Per-command connection (on-demand)
 
-フロントエンドからのリクエスト（Invoke）のたびに TCP 接続を確立し、読み出し後にクローズする。
+Establish a TCP connection for each frontend request (Invoke), read data, then close.
 
-- **メリット:** 実装がシンプル、接続管理が不要
-- **デメリット:** TCP ハンドシェイクのオーバーヘッドが毎回発生、リアルタイム更新には不向き
+- **Pros:** Simple implementation, no connection management needed
+- **Cons:** TCP handshake overhead on every request; unsuitable for real-time updates
 
-## 意思決定
+## Decision
 
-**方法A（常時接続 + ポーリング）を採用する。**
+**Adopt Method A (persistent connection + polling).**
 
-ただし、接続断時の自動再接続（バックオフ付きリトライ）を実装する。
+Implement automatic reconnection with exponential backoff on disconnect.
 
-## 根拠
+## Rationale
 
-1. **ダッシュボードのユースケース:** 数百ms 間隔でデータを更新し続ける監視画面が主目的
-2. **PLC 側の負荷:** 都度接続は TCP コネクション確立のたびに PLC 側の処理が発生するため、常時接続のほうが安定
-3. **産業用通信の慣習:** ラダープログラムと連携する FA 通信では常時接続が一般的
+1. **Dashboard use case:** The primary purpose is a monitoring screen that continuously updates data at sub-second intervals
+2. **PLC-side load:** On-demand connections trigger PLC processing on every TCP establishment; persistent connections are more stable
+3. **FA communication convention:** Persistent connections are standard practice in FA communications interfacing with ladder programs
 
-## 実装方針
+## Implementation
 
-### アーキテクチャ
+### Architecture
 
 ```
-[Frontend（React）]
+[Frontend (React)]
       │ tauri::invoke / tauri::listen
       ▼
-[Tauri Command / Event（lib.rs）]
+[Tauri Command / Event (lib.rs)]
       │ channel / mutex
       ▼
-[PollingTask（tokio スポーン）]
+[PollingTask (tokio spawn)]
   ├── Mitsubishi: TCP + MC Protocol 3E Frame
   └── Keyence: TCP + Upper Link ASCII
 ```
 
-### 接続管理
+### Connection Management
 
-Tauri の `AppState`（`Mutex<HashMap<plc_id, PlcConnection>>`）で接続を管理する。
+Connections are managed via Tauri `AppState` (`Mutex<HashMap<plc_id, PlcConnection>>`).
 
-### 再接続ロジック
+### Reconnection Logic
 
-指数バックオフ（初回 1s → 2s → 4s → 最大 30s）で再接続を試みる。
-再接続中はフロントエンドに「接続中」ステータスを通知する。
+Retry with exponential backoff (initial 1s → 2s → 4s → max 30s). Notify the frontend with "connecting" status during reconnection.
 
-### ポーリング間隔
+### Polling Interval
 
-デフォルト 500ms。フロントエンドから動的に変更可能とする。
+Default 500ms. Dynamically configurable from the frontend.
 
-## プロトコル仕様メモ
+## Protocol Specification Notes
 
-### 三菱 MC プロトコル 3E フレーム（バイナリ）
-
-```
-[要求フレーム]
-50 00          : サブヘッダ（3E フレーム）
-00             : ネットワーク番号
-FF             : PC 番号
-FF 03          : 要求先ユニット I/O 番号
-00             : 要求先ユニット局番号
-LL LL          : 要求データ長（リトルエンディアン）
-10 00          : 監視タイマ（16 × 250ms = 4s）
-01 04          : コマンド（一括読出し: 0x0401）
-00 00          : サブコマンド（ワード単位）
-HH HH HH      : 先頭デバイス番号（3バイト LE）
-CC             : デバイスコード（D=0xA8, M=0x90, W=0xB4）
-NN NN          : デバイス点数（LE）
-```
-
-### キーエンス上位リンク
+### Mitsubishi MC Protocol 3E Frame (Binary)
 
 ```
-読み出し: RDS DM1000.U 10\r\n
-応答:    100 200 300 ... (スペース区切り + \r\n)
-
-書き込み: WRS DM1000.U 1 100\r\n
-応答:    OK\r\n
+[Request frame]
+50 00          : Sub-header (3E frame)
+00             : Network number
+FF             : PC number
+FF 03          : Destination unit I/O number
+00             : Destination unit station number
+LL LL          : Request data length (little-endian)
+10 00          : Monitoring timer (16 × 250ms = 4s)
+01 04          : Command (batch read: 0x0401)
+00 00          : Sub-command (word units)
+HH HH HH      : Starting device number (3 bytes LE)
+CC             : Device code (D=0xA8, M=0x90, W=0xB4)
+NN NN          : Number of devices (LE)
 ```
 
-## 影響
+### Keyence Upper Link
 
-- `tokio` の非同期ランタイムが必須
-- Tauri の `AppState` で複数 PLC の接続を管理する実装が必要
-- PLC 側の最大接続数（三菱: 通常 8〜32）を超えないよう接続数を管理する
+```
+Read:   RDS DM1000.U 10\r\n
+Reply:  100 200 300 ... (space-separated + \r\n)
 
-## 関連 ADR
+Write:  WRS DM1000.U 1 100\r\n
+Reply:  OK\r\n
+```
 
-- [ADR-001](./adr-001-framework.md) - フレームワーク選定
-- [ADR-002](./adr-002-mtls-cert-management.md) - mTLS 証明書管理
+## Consequences
+
+- `tokio` async runtime is required
+- Must implement `AppState` management for multiple PLC connections in Tauri
+- Must stay within the PLC's maximum connection count (Mitsubishi: typically 8–32)
+
+## Related ADRs
+
+- [ADR-001](./adr-001-framework.md) - Framework selection
+- [ADR-002](./adr-002-mtls-cert-management.md) - mTLS certificate management

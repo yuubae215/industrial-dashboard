@@ -1,55 +1,55 @@
-# UI レイヤー公準
+# UI Layer Contracts
 
-> この文書の禁止事項に違反した実装は 🟥 レッドカード（マージ拒絶）となる。
+> Implementations that violate the prohibitions in this document receive a 🟥 Red Card (merge rejection).
 
-参照：[PHILOSOPHY.md](../../PHILOSOPHY.md) 公理3 / [ADR-004](../adr/adr-004-ux-fixed-slot-policy.md)
-
----
-
-## 公準 1：固定スロット不変原則
-
-**許可：**
-- ボタンを `disabled` 属性 + 視覚的グレーアウトで「押せない状態」にする
-- スロットの内容（ラベル・アイコン）をコンテキストに応じて切り替える
-
-**禁止：**
-- `display: none` / `visibility: hidden` でボタンを物理的に消す ← 🟥
-- 状態変化によってスロットのインデックス（位置）を入れ替える ← 🟥
-- 有効なボタンのみを左詰めで動的配置する（シーケンシャル配置） ← 🟥
-- コンテナのサイズを内容量に応じて自動縮小する ← 🟥
+Reference: [PHILOSOPHY.md](../../PHILOSOPHY.md) Axiom 3 / [ADR-004](../adr/adr-004-ux-fixed-slot-policy.md)
 
 ---
 
-## 公準 2：単方向データフロー（アンチジッター）
+## Contract 1: Fixed-Slot Immutability
 
-**許可：**
-- Tauri イベント → Zustand ストア更新 → React コンポーネント再レンダリング
+**Allowed:**
+- Setting a button to a "non-pressable" state via the `disabled` attribute + visual greying
+- Switching slot content (label, icon) based on context
 
-**禁止：**
-- React コンポーネントが受け取った値を、同コンポーネント内の `useState` で二次保持し差分計算する ← 🟥
-- `useEffect` 内で前回の props と現在の props の差分をストアにフィードバックする ← 🟥
-- `ref` を使って DOM を直接書き換えてストアをバイパスする ← 🟥
-
----
-
-## 公準 3：UIスレッド死守
-
-**許可：**
-- すべての PLC 通信・データ変換を `invoke()` 経由の Tauri コマンドで実行する
-- 重い計算（ソート・フィルタ・集計）を `useMemo` でメモ化する
-
-**禁止：**
-- `for` ループや同期的な重い計算をイベントハンドラ内で直接実行する ← 🟥
-- 500 件以上のデータを `Array.map()` でレンダリングの直前に毎回変換する（仮想化なし） ← 🟥
+**Prohibited:**
+- Physically removing a button with `display: none` / `visibility: hidden` ← 🟥
+- Swapping slot indices (positions) based on state changes ← 🟥
+- Dynamically placing only active buttons left-aligned (sequential layout) ← 🟥
+- Auto-shrinking container size based on content amount ← 🟥
 
 ---
 
-## 公準 4：コンポーネントのスコープ
+## Contract 2: Unidirectional Data Flow (Anti-Jitter)
 
-**許可：**
-- コンポーネントは「表示と最小限のインタラクション」のみを担う
-- コンポーネントの `Props` 型にブランド型（`PlcRawValue`, `EngineeringValue`）を使う
+**Allowed:**
+- Tauri event → Zustand store update → React component re-render
 
-**禁止：**
-- コンポーネント内に Tauri `invoke()` を直接書く（ストア or カスタムフックを経由すること） ← 🟥
-- コンポーネント内でスケーリング・単位換算などの変換ロジックを計算する ← 🟥
+**Prohibited:**
+- A React component receiving a value and caching it in its own `useState` for delta calculation ← 🟥
+- Feeding back diffs between previous and current props to the store inside `useEffect` ← 🟥
+- Directly mutating the DOM via `ref` to bypass the store ← 🟥
+
+---
+
+## Contract 3: UI Thread Protection
+
+**Allowed:**
+- All PLC communication and data transformation via `invoke()` Tauri commands
+- Memoizing heavy computations (sort, filter, aggregation) with `useMemo`
+
+**Prohibited:**
+- Running `for` loops or synchronous heavy computation directly in event handlers ← 🟥
+- Transforming 500+ data items with `Array.map()` directly before every render (without virtualization) ← 🟥
+
+---
+
+## Contract 4: Component Scope
+
+**Allowed:**
+- Components handle "display and minimal interaction" only
+- Using branded types (`PlcRawValue`, `EngineeringValue`) in component `Props` types
+
+**Prohibited:**
+- Writing Tauri `invoke()` directly inside a component (route through a store or custom hook) ← 🟥
+- Computing scaling or unit conversion logic inside component render ← 🟥
