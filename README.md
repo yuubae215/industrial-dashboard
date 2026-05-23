@@ -15,7 +15,7 @@ Real-time industrial monitoring and control dashboard built with **Tauri v2**, *
 ### Frontend
 
 - **Node.js**: v20.x LTS
-- **npm**: v9.x or higher
+- **pnpm**: v10.x or higher (`npm install -g pnpm`)
 
 ### Backend
 
@@ -53,30 +53,36 @@ xcode-select --install
 ### 1. Install dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 2. Start mock servers (for environments without physical hardware)
 
 ```bash
 # Generate test SSL certificates and .p12 bundles
-npm run mock:gen-certs
+pnpm mock:gen-certs
 
-# MC Protocol mock server for Mitsubishi/Keyence (MC-compatible) — Port 5001
-npm run mock:mitsubishi
+# MC Protocol mock server for Mitsubishi (MC-compatible) — Port 5001
+pnpm mock:mitsubishi
+
+# Keyence Upper Link mock server — Port 8501
+pnpm mock:keyence
 
 # mTLS-authenticated HTTPS mock server — Port 8443
-npm run mock:https
+pnpm mock:https
 ```
 
 ### 3. Run the application
 
 ```bash
 # TypeScript type check + Vite build
-npm run build
+pnpm build
 
 # Start Tauri dev server (first run takes several minutes for Rust compilation)
-npm run tauri dev
+pnpm tauri dev
+
+# Build Tauri desktop app (production binary)
+pnpm tauri build
 ```
 
 ## Tauri Commands
@@ -105,7 +111,7 @@ See [docs/adr/](docs/adr/) for detailed architecture decisions.
 
 A frontend-only demo (excluding Tauri desktop features) is automatically deployed to GitHub Pages, allowing UI/UX verification in the browser.
 
-- **Demo URL:** `https://yuubae215.github.io/industrial-dashboard/`
+- **Demo URL:** [https://yuubae215.github.io/industrial-dashboard/](https://yuubae215.github.io/industrial-dashboard/)
 - **Limitation:** Direct TCP socket communication with physical PLCs is not possible due to browser security restrictions. The demo is for verifying UI and data flow only.
 
 Deployment is automated via GitHub Actions (`.github/workflows/deploy-demo.yml`).
