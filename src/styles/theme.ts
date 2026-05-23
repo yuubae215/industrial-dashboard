@@ -1,15 +1,21 @@
 export const theme = {
-  bg: '#1A1D20',
-  bgCard: '#2D3748',
-  bgHeader: '#1A202C',
-  text: '#E2E8F0',
-  textMuted: '#A0AEC0',
-  border: '#4A5568',
-  normal: '#48BB78',
-  warning: '#F4A261',
-  critical: '#E63946',
-  accent: '#63B3ED',
-  fontMono: "'JetBrains Mono', 'Roboto Mono', Consolas, monospace",
+  bg: '#0B0D13',
+  bgCard: '#131722',
+  bgHeader: '#0F111A',
+  text: '#F8FAFC',
+  textMuted: '#475569',
+  border: '#1E293B',
+  normal: '#0EA5E9',
+  warning: '#F59E0B',
+  critical: '#EF4444',
+  accent: '#6366F1',
+  quantity: {
+    temp:    '#F97316',
+    press:   '#06B6D4',
+    flow:    '#10B981',
+    generic: '#64748B',
+  },
+  fontMono: "'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace",
   touchMin: 48,
 } as const
 
@@ -17,7 +23,7 @@ export type ThemeColor = 'normal' | 'warning' | 'critical' | 'accent'
 
 export const alarmLevelColor: Record<string, string> = {
   HH: theme.critical,
-  H: theme.warning,
-  L: theme.warning,
+  H:  theme.warning,
+  L:  theme.warning,
   LL: theme.critical,
 }

@@ -3,6 +3,7 @@ import { usePlcPolling } from '../hooks/usePlcPolling'
 import { useAlarmMonitor } from '../store/useAlarmStore'
 import { useAlarmStore } from '../store/useAlarmStore'
 import { usePlcConfigStore, MELSEC_PLC_ID, KEYENCE_PLC_ID } from '../store/usePlcConfigStore'
+import { usePlcStore } from '../store/usePlcStore'
 import { AlarmPanel } from './AlarmPanel'
 import { MetricCard } from './MetricCard'
 import { RealtimeTrendChart } from './RealtimeTrendChart'
@@ -23,30 +24,46 @@ const INTERVAL_MS = POLLING_INTERVAL_MS
 const MELSEC_THRESHOLD: AlarmThreshold = {
   plcId: MELSEC_ID,
   address: START_ADDRESS,
-  label: '三菱 Line A 炉温',
-  unit: '℃',
-  HH: asThresholdValue(2500), // 250.0 ℃
-  H: asThresholdValue(2000),  // 200.0 ℃
-  L: asThresholdValue(500),   //  50.0 ℃
-  LL: asThresholdValue(200),  //  20.0 ℃
+  label: 'Mitsubishi Line A Furnace Temp',
+  unit: 'degC',
+  HH: asThresholdValue(2500),
+  H: asThresholdValue(2000),
+  L: asThresholdValue(500),
+  LL: asThresholdValue(200),
 }
 
-// ---------------------------------------------------------------------------
-// 現在時刻表示（純粋関数 — state に保存しない）
-// ---------------------------------------------------------------------------
-
 function useCurrentTime(): string {
-  const [time, setTime] = useState(() => new Date().toLocaleTimeString('ja-JP'))
+  const [time, setTime] = useState(() =>
+    new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  )
   useEffect(() => {
-    const id = setInterval(() => setTime(new Date().toLocaleTimeString('ja-JP')), 1000)
+    const id = setInterval(
+      () =>
+        setTime(
+          new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+        ),
+      1000,
+    )
     return () => clearInterval(id)
   }, [])
   return time
 }
 
-// ---------------------------------------------------------------------------
-// メインコンポーネント
-// ---------------------------------------------------------------------------
+const statusLabel: Record<string, string> = {
+  connected: 'ONLINE',
+  connecting: 'CONNECTING',
+  disconnected: 'OFFLINE',
+  timeout: 'TIMEOUT',
+  error: 'ERROR',
+}
+
+const statusColor: Record<string, string> = {
+  connected: theme.normal,
+  connecting: theme.warning,
+  disconnected: theme.border,
+  timeout: theme.warning,
+  error: theme.critical,
+}
 
 export const Dashboard: React.FC = () => {
   const [isTrendVisible, setIsTrendVisible] = useState(false)
@@ -54,15 +71,14 @@ export const Dashboard: React.FC = () => {
 
   const melsecConfig = usePlcConfigStore((s) => s.configs[MELSEC_ID])
   const keyenceConfig = usePlcConfigStore((s) => s.configs[KEYENCE_ID])
+  const melsecStatus = usePlcStore((s) => s.connectionStatuses[MELSEC_ID] ?? 'disconnected')
+  const keyenceStatus = usePlcStore((s) => s.connectionStatuses[KEYENCE_ID] ?? 'disconnected')
 
-  // アラーム監視フックを明示的に初期化（モジュールロードの保証）
   useAlarmMonitor()
 
-  // しきい値を起動時に登録（設定 UI が実装されるまでの初期値）
   const setThreshold = useAlarmStore((s) => s.setThreshold)
   useEffect(() => { setThreshold(MELSEC_THRESHOLD) }, [setThreshold])
 
-  // PLC ポーリング開始
   usePlcPolling({
     plcId: MELSEC_ID,
     config: melsecConfig,
@@ -95,106 +111,144 @@ export const Dashboard: React.FC = () => {
         fontFamily: theme.fontMono,
       }}
     >
-      {/* アラームパネル（発生中アラームがある場合のみ表示） */}
       <AlarmPanel />
 
-      {/* メインコンテンツ */}
-      <main style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* ヘッダ */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
         <header
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            padding: '12px 24px',
+            background: theme.bgHeader,
             borderBottom: `1px solid ${theme.border}`,
-            paddingBottom: 12,
           }}
         >
-          <div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 20,
-                fontWeight: 700,
-                color: theme.text,
-              }}
-            >
-              産業用リアルタイムダッシュボード
-            </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: theme.textMuted }}>
-              MC プロトコル 3E フレーム — {INTERVAL_MS}ms ポーリング
-            </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text, letterSpacing: '0.05em' }}>
+                INDUSTRIAL REALTIME DASHBOARD
+              </h1>
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: theme.textMuted }}>
+                MC Protocol 3E Frame &mdash; {INTERVAL_MS}ms polling
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+              <span style={{ fontSize: 22, fontFamily: theme.fontMono, color: theme.accent, fontWeight: 700 }}>
+                {currentTime}
+              </span>
+              {/* Connection status badges */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                {([
+                  { id: MELSEC_ID, label: 'MELSEC', status: melsecStatus },
+                  { id: KEYENCE_ID, label: 'KV', status: keyenceStatus },
+                ] as const).map(({ id, label, status }) => (
+                  <span
+                    key={id}
+                    style={{
+                      fontSize: 10,
+                      fontFamily: theme.fontMono,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 3,
+                      border: `1px solid ${statusColor[status]}`,
+                      color: statusColor[status],
+                    }}
+                  >
+                    {label}: {statusLabel[status] ?? status.toUpperCase()}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
-          <span
-            style={{
-              fontSize: 18,
-              fontFamily: theme.fontMono,
-              color: theme.accent,
-              fontWeight: 600,
-            }}
-          >
-            {currentTime}
-          </span>
         </header>
 
-        {/* メトリクスグリッド */}
-        <section style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <MetricCard
-            label="三菱 MELSEC (Line A) — 炉温"
-            plcId={MELSEC_ID}
-            address={START_ADDRESS}
-            scale={0.1}
-            unit="℃"
-            threshold={MELSEC_THRESHOLD}
-          />
-          <MetricCard
-            label="キーエンス KV (Line B)"
-            plcId={KEYENCE_ID}
-            address={START_ADDRESS}
-            scale={1}
-          />
-        </section>
-
-        {/* トレンドグラフ（フッター Slot 2 でトグル） */}
-        {isTrendVisible && (
+        {/* Body */}
+        <div style={{ flex: 1, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Metrics */}
           <section>
-            <h2
+            <div
               style={{
-                margin: '0 0 8px',
-                fontSize: 14,
-                fontWeight: 600,
-                color: theme.textMuted,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 12,
               }}
             >
-              リアルタイムトレンド — {MELSEC_ID} D{START_ADDRESS}
-            </h2>
-            <RealtimeTrendChart
-              plcId={MELSEC_ID}
-              address={START_ADDRESS}
-              scale={0.1}
-              unit="℃"
-              threshold={MELSEC_THRESHOLD}
-            />
+              <span style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.1em' }}>
+                LIVE METRICS
+              </span>
+              <div style={{ flex: 1, height: 1, background: theme.border }} />
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: 16,
+              }}
+            >
+              <MetricCard
+                label="Mitsubishi MELSEC — Line A Furnace"
+                plcId={MELSEC_ID}
+                address={START_ADDRESS}
+                scale={0.1}
+                unit="degC"
+                quantityType="temp"
+                threshold={MELSEC_THRESHOLD}
+              />
+              <MetricCard
+                label="Keyence KV — Line B"
+                plcId={KEYENCE_ID}
+                address={START_ADDRESS}
+                scale={1}
+                quantityType="generic"
+              />
+            </div>
           </section>
-        )}
 
-        {/* デバッグ Watch Window（保守モード時のみ表示） */}
-        <WatchWindow plcConfig={melsecConfig} defaultPlcId={MELSEC_ID} />
+          {/* Trend chart */}
+          {isTrendVisible && (
+            <section>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 12,
+                }}
+              >
+                <span style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.1em' }}>
+                  REALTIME TREND
+                </span>
+                <span style={{ fontSize: 10, color: theme.textMuted }}>
+                  {MELSEC_ID} D{START_ADDRESS}
+                </span>
+                <div style={{ flex: 1, height: 1, background: theme.border }} />
+              </div>
+              <RealtimeTrendChart
+                plcId={MELSEC_ID}
+                address={START_ADDRESS}
+                scale={0.1}
+                unit="degC"
+                threshold={MELSEC_THRESHOLD}
+              />
+            </section>
+          )}
+
+          {/* Debug watch window (maintenance mode only) */}
+          <WatchWindow plcConfig={melsecConfig} defaultPlcId={MELSEC_ID} />
+        </div>
       </main>
 
-      {/* フッター — 4 固定スロット（ADR-004） */}
       <Footer
         onTrendToggle={() => setIsTrendVisible((v) => !v)}
         isTrendVisible={isTrendVisible}
         onSettingsOpen={() => setIsSettingsOpen(true)}
       />
 
-      {/* 接続設定モーダル */}
       {isSettingsOpen && (
         <ConnectionSettings
           plcs={[
-            { plcId: MELSEC_ID, label: '三菱 MELSEC (mitsubishi)' },
-            { plcId: KEYENCE_ID, label: 'キーエンス KV (keyence)' },
+            { plcId: MELSEC_ID, label: 'Mitsubishi MELSEC' },
+            { plcId: KEYENCE_ID, label: 'Keyence KV' },
           ]}
           onClose={() => setIsSettingsOpen(false)}
         />
