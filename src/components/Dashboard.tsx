@@ -124,19 +124,19 @@ export const Dashboard: React.FC = () => {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text, letterSpacing: '0.05em' }}>
+              <h1 style={{ margin: 0, fontSize: theme.fs.md, fontWeight: 700, color: theme.text, letterSpacing: '0.06em' }}>
                 INDUSTRIAL REALTIME DASHBOARD
               </h1>
-              <p style={{ margin: '4px 0 0', fontSize: 11, color: theme.textMuted }}>
+              <p style={{ margin: '4px 0 0', fontSize: theme.fs.sm, color: theme.textMuted, letterSpacing: '0.02em' }}>
                 MC Protocol 3E Frame &mdash; {INTERVAL_MS}ms polling
               </p>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-              <span style={{ fontSize: 22, fontFamily: theme.fontMono, color: theme.accent, fontWeight: 700 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: theme.sp[1] }}>
+              <span style={{ fontSize: theme.fs.lg, fontFamily: theme.fontMono, color: theme.accent, fontWeight: 700, letterSpacing: '0.04em' }}>
                 {currentTime}
               </span>
               {/* Connection status badges */}
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: theme.sp[2] }}>
                 {([
                   { id: MELSEC_ID, label: 'MELSEC', status: melsecStatus },
                   { id: KEYENCE_ID, label: 'KV', status: keyenceStatus },
@@ -144,13 +144,14 @@ export const Dashboard: React.FC = () => {
                   <span
                     key={id}
                     style={{
-                      fontSize: 10,
+                      fontSize: theme.fs.xs,
                       fontFamily: theme.fontMono,
                       fontWeight: 700,
                       padding: '2px 8px',
                       borderRadius: 3,
                       border: `1px solid ${statusColor[status]}`,
                       color: statusColor[status],
+                      letterSpacing: '0.06em',
                     }}
                   >
                     {label}: {statusLabel[status] ?? status.toUpperCase()}
@@ -173,7 +174,7 @@ export const Dashboard: React.FC = () => {
                 marginBottom: 12,
               }}
             >
-              <span style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.1em' }}>
+              <span style={{ fontSize: theme.fs.xs, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.1em' }}>
                 LIVE METRICS
               </span>
               <div style={{ flex: 1, height: 1, background: theme.border }} />
@@ -215,7 +216,7 @@ export const Dashboard: React.FC = () => {
                   marginBottom: 12,
                 }}
               >
-                <span style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.1em' }}>
+                <span style={{ fontSize: theme.fs.xs, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.1em' }}>
                   REALTIME TREND
                 </span>
                 <span style={{ fontSize: 10, color: theme.textMuted }}>

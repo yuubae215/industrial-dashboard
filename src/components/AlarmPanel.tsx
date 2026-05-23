@@ -54,20 +54,21 @@ export const AlarmPanel: React.FC = () => {
                 background: color,
                 color: '#0F1114',
                 fontWeight: 700,
-                fontSize: 11,
+                fontSize: theme.fs.sm,
                 padding: '2px 8px',
                 borderRadius: 3,
                 fontFamily: theme.fontMono,
                 minWidth: 30,
                 textAlign: 'center',
+                letterSpacing: '0.06em',
               }}
             >
               {alarm.level}
             </span>
-            <span style={{ color: theme.textMuted, fontSize: 12, fontFamily: theme.fontMono }}>
+            <span style={{ color: theme.textMuted, fontSize: theme.fs.sm, fontFamily: theme.fontMono }}>
               {new Date(alarm.triggeredAt).toLocaleTimeString()}
             </span>
-            <span style={{ color: theme.text, flex: 1, fontFamily: theme.fontMono, fontSize: 13 }}>
+            <span style={{ color: theme.text, flex: 1, fontFamily: theme.fontMono, fontSize: theme.fs.base }}>
               {alarm.plcId} D{alarm.address} = {alarm.triggerValue}
               <span style={{ color: theme.textMuted, marginLeft: 8 }}>
                 [{levelLabel[alarm.level]}]
@@ -78,10 +79,10 @@ export const AlarmPanel: React.FC = () => {
                 label="ACK"
                 variant="warning"
                 onClick={() => acknowledgeAlarm(alarm.id)}
-                style={{ minHeight: 36, minWidth: 60, fontSize: 12 }}
+                style={{ minHeight: 36, minWidth: 60, fontSize: theme.fs.sm }}
               />
             ) : (
-              <span style={{ color: theme.textMuted, fontSize: 11, fontFamily: theme.fontMono }}>
+              <span style={{ color: theme.textMuted, fontSize: theme.fs.sm, fontFamily: theme.fontMono, opacity: 0.6 }}>
                 ACK'd
               </span>
             )}

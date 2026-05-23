@@ -2,10 +2,27 @@ import type { ThemeColor } from '../styles/theme'
 import { theme } from '../styles/theme'
 
 const variantBg: Record<ThemeColor, string> = {
-  normal: theme.normal,
-  warning: theme.warning,
+  normal:   theme.normal,
+  warning:  theme.warning,
   critical: theme.critical,
-  accent: theme.accent,
+  accent:   theme.accent,
+  ghost:    'transparent',
+}
+
+const variantTextColor: Record<ThemeColor, string> = {
+  normal:   '#0F1114',
+  warning:  '#0F1114',
+  critical: '#0F1114',
+  accent:   '#0F1114',
+  ghost:    theme.textMuted,
+}
+
+const variantBorder: Record<ThemeColor, string> = {
+  normal:   'none',
+  warning:  'none',
+  critical: 'none',
+  accent:   'none',
+  ghost:    `1px solid ${theme.border}`,
 }
 
 interface TouchButtonProps {
@@ -36,16 +53,17 @@ export const TouchButton: React.FC<TouchButtonProps> = ({
       minHeight: theme.touchMin,
       minWidth: 80,
       padding: '0 16px',
-      borderRadius: 6,
-      border: 'none',
+      borderRadius: 4,
+      border: disabled ? `1px solid ${theme.border}` : variantBorder[variant],
       fontFamily: theme.fontMono,
-      fontSize: 13,
+      fontSize: theme.fs.base,
       fontWeight: 600,
       cursor: disabled ? 'not-allowed' : 'pointer',
-      opacity: disabled ? 0.38 : 1,
-      background: disabled ? theme.border : variantBg[variant],
-      color: disabled ? theme.textMuted : '#0F1114',
+      opacity: disabled ? 0.32 : 1,
+      background: disabled ? 'transparent' : variantBg[variant],
+      color: disabled ? theme.textMuted : variantTextColor[variant],
       transition: 'opacity 0.15s, background 0.15s',
+      letterSpacing: '0.03em',
       ...style,
     }}
   >

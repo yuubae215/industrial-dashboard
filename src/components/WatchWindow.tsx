@@ -89,10 +89,10 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
           marginBottom: 12,
         }}
       >
-        <span style={{ fontWeight: 700, color: theme.accent, fontSize: 14 }}>
+        <span style={{ fontWeight: 700, color: theme.accent, fontSize: theme.fs.base }}>
           Debug Watch Window
         </span>
-        <span style={{ color: theme.textMuted, fontSize: 11 }}>
+        <span style={{ color: theme.textMuted, fontSize: theme.fs.sm }}>
           Target PLC: {defaultPlcId} — Enter D1000 etc. to start monitoring
         </span>
       </div>
@@ -104,10 +104,10 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
       )}
 
       <table
-        style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}
+        style={{ width: '100%', borderCollapse: 'collapse', fontSize: theme.fs.base }}
       >
         <thead>
-          <tr style={{ background: '#2D3748', color: theme.textMuted }}>
+          <tr style={{ background: theme.bgHeader, color: theme.textMuted }}>
             <th style={thStyle}>No.</th>
             <th style={thStyle}>Device</th>
             <th style={{ ...thStyle, color: theme.normal }}>Value</th>
@@ -221,8 +221,9 @@ const thStyle: React.CSSProperties = {
   padding: '6px 8px',
   border: `1px solid ${theme.border}`,
   textAlign: 'left',
-  fontSize: 12,
+  fontSize: theme.fs.sm,
   fontWeight: 600,
+  letterSpacing: '0.05em',
 }
 
 const tdStyle: React.CSSProperties = {
@@ -231,13 +232,13 @@ const tdStyle: React.CSSProperties = {
 }
 
 const inputStyle: React.CSSProperties = {
-  background: '#374151',
+  background: theme.bg,
   color: theme.text,
   border: `1px solid ${theme.border}`,
   borderRadius: 3,
   padding: '3px 6px',
   fontFamily: theme.fontMono,
-  fontSize: 13,
+  fontSize: theme.fs.base,
   width: '100%',
   boxSizing: 'border-box',
 }

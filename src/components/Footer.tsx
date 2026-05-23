@@ -39,7 +39,7 @@ export const Footer: React.FC<FooterProps> = ({ onTrendToggle, isTrendVisible, o
       <TouchButton label="<- Back" disabled onClick={() => {}} />
 
       {/* Slot 1: open connection settings modal */}
-      <TouchButton label="Settings" onClick={onSettingsOpen} />
+      <TouchButton label="Settings" variant="ghost" onClick={onSettingsOpen} />
 
       {/* Slot 2: trend visibility toggle */}
       <TouchButton

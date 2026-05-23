@@ -86,7 +86,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
     border: `1px solid ${theme.border}`,
     borderRadius: 4,
     padding: '8px 10px',
-    fontSize: 14,
+    fontSize: theme.fs.base,
     fontFamily: theme.fontMono,
     width: '100%',
     boxSizing: 'border-box',
@@ -94,10 +94,11 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
   }
 
   const labelStyle: React.CSSProperties = {
-    fontSize: 12,
+    fontSize: theme.fs.sm,
     color: theme.textMuted,
     marginBottom: 4,
     display: 'block',
+    letterSpacing: '0.04em',
   }
 
   return (
@@ -124,13 +125,13 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
           maxWidth: 'calc(100vw - 32px)',
         }}
       >
-        <h2 style={{ margin: '0 0 20px', fontSize: 16, color: theme.text, fontWeight: 700 }}>
+        <h2 style={{ margin: '0 0 20px', fontSize: theme.fs.md, color: theme.text, fontWeight: 700, letterSpacing: '0.04em' }}>
           Connection Settings
         </h2>
 
         {plcs.map(({ plcId, label }) => (
           <div key={plcId} style={{ marginBottom: 20 }}>
-            <h3 style={{ margin: '0 0 10px', fontSize: 13, color: theme.accent, fontWeight: 600 }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: theme.fs.base, color: theme.accent, fontWeight: 600, letterSpacing: '0.03em' }}>
               {label}
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 130px', gap: 12 }}>
@@ -191,11 +192,12 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
               minHeight: theme.touchMin,
               background: 'transparent',
               border: `1px solid ${theme.border}`,
-              borderRadius: 6,
+              borderRadius: 4,
               color: theme.textMuted,
               cursor: 'pointer',
               fontFamily: theme.fontMono,
-              fontSize: 14,
+              fontSize: theme.fs.base,
+              letterSpacing: '0.03em',
             }}
           >
             Cancel
@@ -207,12 +209,13 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
               minHeight: theme.touchMin,
               background: theme.accent,
               border: 'none',
-              borderRadius: 6,
-              color: '#1A1D20',
+              borderRadius: 4,
+              color: '#0F1114',
               cursor: 'pointer',
               fontFamily: theme.fontMono,
-              fontSize: 14,
+              fontSize: theme.fs.base,
               fontWeight: 700,
+              letterSpacing: '0.03em',
             }}
           >
             Save & Apply

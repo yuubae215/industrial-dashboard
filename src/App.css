@@ -5,8 +5,8 @@
 html, body, #root {
   margin: 0;
   padding: 0;
-  background: #1A1D20;
-  color: #E2E8F0;
+  background: #0B0D13;
+  color: #F8FAFC;
   font-family: 'JetBrains Mono', 'Roboto Mono', Consolas, monospace;
 }
 
@@ -14,14 +14,14 @@ html, body, #root {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #1A1D20;
+  background: #0B0D13;
 }
 ::-webkit-scrollbar-thumb {
-  background: #4A5568;
+  background: #1E293B;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #718096;
+  background: #334155;
 }
 
 :focus-visible {

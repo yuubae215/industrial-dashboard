@@ -104,26 +104,27 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
       {/* row 1: address metadata + connection status */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: theme.sp[2] }}>
           <span
             style={{
-              fontSize: 10,
+              fontSize: theme.fs.xs,
               fontWeight: 700,
               color: theme.textMuted,
               fontFamily: theme.fontMono,
-              background: '#1E293B',
+              background: theme.border,
               padding: '2px 6px',
               borderRadius: 2,
+              letterSpacing: '0.04em',
             }}
           >
             {plcId}
           </span>
-          <span style={{ fontSize: 11, fontFamily: theme.fontMono, color: theme.text, opacity: 0.8 }}>
+          <span style={{ fontSize: theme.fs.sm, fontFamily: theme.fontMono, color: theme.text, opacity: 0.7 }}>
             D{address}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 9, fontFamily: theme.fontMono, color: theme.textMuted }}>
+          <span style={{ fontSize: theme.fs.xs, fontFamily: theme.fontMono, color: theme.textMuted, letterSpacing: '0.06em' }}>
             {status.toUpperCase()}
           </span>
           <span
@@ -139,27 +140,29 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       </div>
 
       {/* row 2: primary value + label — maximum jump rate */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: theme.sp[2] }}>
         <div
           style={{
-            fontSize: 44,
+            fontSize: theme.fs.xl,
             fontWeight: 700,
             // ISA-101: white in normal state, alarm color only on fault
             color: isAlarm ? alertColor : theme.text,
             fontFamily: theme.fontMono,
-            letterSpacing: '-2px',
+            letterSpacing: '-0.5px',
             lineHeight: 1,
+            flexShrink: 0,
           }}
         >
           {displayValue}
           {unit && (
             <span
               style={{
-                fontSize: 14,
-                marginLeft: 4,
-                fontWeight: 500,
+                fontSize: theme.fs.base,
+                marginLeft: 6,
+                fontWeight: 400,
                 color: theme.textMuted,
-                fontFamily: 'sans-serif',
+                fontFamily: theme.fontMono,
+                letterSpacing: 0,
               }}
             >
               {unit}
@@ -168,12 +171,12 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         </div>
         <div
           style={{
-            fontSize: 12,
-            fontWeight: 600,
+            fontSize: theme.fs.base,
+            fontWeight: 500,
             color: theme.text,
-            opacity: 0.7,
+            opacity: 0.6,
             textAlign: 'right',
-            maxWidth: 140,
+            minWidth: 0,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -191,31 +194,32 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           borderTop: `1px solid ${theme.border}`,
-          paddingTop: 8,
-          fontSize: 10,
+          paddingTop: theme.sp[2],
+          fontSize: theme.fs.xs,
           fontFamily: theme.fontMono,
           color: theme.textMuted,
         }}
       >
         <div>
-          RAW_VAL: <span style={{ color: theme.text, fontWeight: 600 }}>{raw !== undefined ? String(raw) : '---'}</span>
+          RAW <span style={{ color: theme.text, fontWeight: 600 }}>{raw !== undefined ? String(raw) : '---'}</span>
         </div>
         {isAlarm ? (
           <span
             style={{
-              background: `${alertColor}15`,
+              background: `${alertColor}18`,
               color: alertColor,
               fontWeight: 700,
+              fontSize: theme.fs.xs,
               padding: '2px 6px',
               borderRadius: 2,
-              border: `1px solid ${alertColor}30`,
-              letterSpacing: '0.5px',
+              border: `1px solid ${alertColor}40`,
+              letterSpacing: '0.06em',
             }}
           >
-            ! STATE: {alarmLevel}
+            {alarmLevel}
           </span>
         ) : (
-          <span style={{ color: theme.textMuted, opacity: 0.5 }}>* STATUS_OK</span>
+          <span style={{ color: theme.textMuted, opacity: 0.4 }}>OK</span>
         )}
       </div>
     </div>
