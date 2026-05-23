@@ -1,60 +1,60 @@
-# ドメインレイヤー公準
+# Domain Layer Contracts
 
-> この文書の禁止事項に違反した実装は 🟥 レッドカード（マージ拒絶）となる。
+> Implementations that violate the prohibitions in this document receive a 🟥 Red Card (merge rejection).
 
-参照：[PHILOSOPHY.md](../../PHILOSOPHY.md) 公理1・2 / [ADR-005](../adr/adr-005-ssot-state-management.md) / [ADR-007](../adr/adr-007-branded-types.md)
-
----
-
-## 公準 1：SSOT の厳守
-
-**保存してよいもの（ストアの state）：**
-- `PlcRawValue[]` — PLC から受信した生値
-- `number`（Unix ms） — 受信タイムスタンプ
-- `ConnectionStatus` — 接続状態の列挙型
-
-**保存してはいけないもの（毎回算出すること）：**
-- スケーリング済みの `EngineeringValue` ← 🟥
-- 前回値との差分・変化量 ← 🟥
-- 警告フラグ（しきい値比較結果）← 🟥
-- フォーマット済みの表示文字列 ← 🟥
+Reference: [PHILOSOPHY.md](../../PHILOSOPHY.md) Axioms 1 & 2 / [ADR-005](../adr/adr-005-ssot-state-management.md) / [ADR-007](../adr/adr-007-branded-types.md)
 
 ---
 
-## 公準 2：ブランド型の使用義務
+## Contract 1: SSOT Enforcement
 
-**許可：**
-- `branded.ts` のコンストラクタ関数（`asPlcRawValue()` 等）を使って型付き値を生成する
+**What MAY be stored (store state):**
+- `PlcRawValue[]` — raw values received from the PLC
+- `number` (Unix ms) — reception timestamp
+- `ConnectionStatus` — connection state enum
 
-**禁止：**
-- `PlcRawValue` と `EngineeringValue` を算術演算で混用する ← 🟥
-- `as unknown as TargetType` でブランド型を強制キャストする ← 🟥
-- `number` を直接 `PlcRawValue` 型変数に代入する ← 🟥
-
----
-
-## 公準 3：バリデーション境界
-
-バリデーション（値域チェック・存在確認）は **システム境界のみ** で行う：
-- Tauri コマンドの引数受け取り時（Rust 側）
-- Tauri コマンドのレスポンスを受け取った直後（TS 側の `invoke()` コールバック）
-
-**禁止：**
-- ドメイン層の純粋関数（変換関数・ゲッター）内でバリデーションを行う ← 🟥
-- コンポーネントの `render` 内でバリデーションエラーのフォールバック処理を書く ← 🟥
+**What MUST NOT be stored (compute each time):**
+- Scaled `EngineeringValue` ← 🟥
+- Delta or change amount from the previous value ← 🟥
+- Alert flags (threshold comparison results) ← 🟥
+- Formatted display strings ← 🟥
 
 ---
 
-## 公準 4：状態遷移の原則
+## Contract 2: Mandatory Branded Type Usage
 
-**ConnectionStatus の遷移：**
+**Allowed:**
+- Creating typed values using constructor functions in `branded.ts` (e.g., `asPlcRawValue()`)
+
+**Prohibited:**
+- Mixing `PlcRawValue` and `EngineeringValue` in arithmetic operations ← 🟥
+- Force-casting branded types with `as unknown as TargetType` ← 🟥
+- Directly assigning a `number` to a `PlcRawValue` typed variable ← 🟥
+
+---
+
+## Contract 3: Validation Boundary
+
+Validation (range checks, existence checks) is performed **only at system boundaries**:
+- When receiving Tauri command arguments (Rust side)
+- Immediately after receiving a Tauri command response (TypeScript side `invoke()` callback)
+
+**Prohibited:**
+- Performing validation inside pure domain functions (transform functions, getters) ← 🟥
+- Writing validation error fallback handling inside component `render` ← 🟥
+
+---
+
+## Contract 4: State Transition Rules
+
+**ConnectionStatus transitions:**
 
 ```
 Disconnected → Connecting → Connected → Disconnecting → Disconnected
                                 ↓
-                            Error（リトライ待ち）
+                            Error (awaiting retry)
 ```
 
-- 上記遷移図に存在しない直接遷移（例: `Connected → Disconnected` のスキップ）は禁止 ← 🟥
-- エラー状態からの自動リトライは Rust 側（ADR-003 の exponential backoff）が担う
-- フロントエンドはリトライの UI を提供するが、タイミング制御を持ってはならない ← 🟥
+- Direct transitions not in the diagram above (e.g., `Connected → Disconnected` skip) are prohibited ← 🟥
+- Automatic retry on error is handled by the Rust side (exponential backoff in ADR-003)
+- The frontend provides retry UI but must not own timing control ← 🟥

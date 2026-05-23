@@ -1,64 +1,63 @@
-# PLC プロトコルレイヤー公準
+# PLC Protocol Layer Contracts
 
-> この文書の禁止事項に違反した実装は 🟥 レッドカード（マージ拒絶）となる。
+> Implementations that violate the prohibitions in this document receive a 🟥 Red Card (merge rejection).
 
-参照：[PHILOSOPHY.md](../../PHILOSOPHY.md) 公理1 / [ADR-003](../adr/adr-003-plc-connection.md)
-
----
-
-## 公準 1：プロトコル純粋性
-
-`src-tauri/src/plc/mitsubishi.rs` および `src-tauri/src/plc/keyence.rs` は、  
-**「バイト列 / ASCII テキストを送受信して生値を返すだけの純粋な変換機」でなければならない。**
-
-**許可：**
-- フレームの組み立て（デバイスコード・先頭番号・点数 → バイト列）
-- レスポンスのパース（バイト列 / ASCII → `Vec<i32>`）
-- プロトコルレベルのエラー検出（エンドコード・`!` プレフィックス等）
-
-**禁止：**
-- ポーリング間隔・リトライ間隔の条件分岐をプロトコル実装内に書く ← 🟥
-- 特定のデバイスアドレス（例：D1000 が温度計だから…）に関するビジネスロジック ← 🟥
-- `println!` / `log::info!` でデバイス値の意味（「温度が高い」等）をログ出力する ← 🟥
-- `PlcConfig` の `host` フィールドを IP か FQDN かで分岐させる（バリデーション境界で処理すること） ← 🟥
+Reference: [PHILOSOPHY.md](../../PHILOSOPHY.md) Axiom 1 / [ADR-003](../adr/adr-003-plc-connection.md)
 
 ---
 
-## 公準 2：Tauri コマンドとプロトコル層の契約
+## Contract 1: Protocol Purity
 
-`lib.rs` の Tauri コマンドは以下の役割のみを持つ：
+`src-tauri/src/plc/mitsubishi.rs` and `src-tauri/src/plc/keyence.rs` must be **"pure converters that only send/receive byte sequences / ASCII text and return raw values."**
 
-1. フロントエンドから受け取った引数を構造体（`PlcConfig`）にマッピング
-2. プロトコル実装関数を呼び出す
-3. 結果（`ReadResult` or `PlcError`）をそのままシリアライズして返す
+**Allowed:**
+- Frame construction (device code, start number, point count → byte sequence)
+- Response parsing (byte sequence / ASCII → `Vec<i32>`)
+- Protocol-level error detection (end code, `!` prefix, etc.)
 
-**禁止：**
-- Tauri コマンド内でリトライループを書く（Rust の接続プールまたは別タスクで行うこと） ← 🟥
-- Tauri コマンド内でデバイス値のしきい値チェックを行う ← 🟥
-- `PlcError` を握り潰して `Ok(vec![0])` のようなフォールバック値を返す ← 🟥
+**Prohibited:**
+- Writing conditional branches for polling interval or retry interval inside the protocol implementation ← 🟥
+- Business logic tied to specific device addresses (e.g., "D1000 is a thermometer, so…") ← 🟥
+- Logging the meaning of device values via `println!` / `log::info!` (e.g., "temperature is high") ← 🟥
+- Branching on whether `PlcConfig`'s `host` field is an IP or FQDN (handle at the validation boundary) ← 🟥
 
 ---
 
-## 公準 3：エラーの透明性
+## Contract 2: Tauri Command and Protocol Layer Contract
 
-`PlcError` のすべてのバリアントはフロントエンドに **そのまま** 伝搬しなければならない。
+Tauri commands in `lib.rs` have only the following responsibilities:
+
+1. Map arguments received from the frontend into a struct (`PlcConfig`)
+2. Call the protocol implementation function
+3. Serialize and return the result (`ReadResult` or `PlcError`) as-is
+
+**Prohibited:**
+- Writing retry loops inside Tauri commands (handle in Rust connection pool or a separate task) ← 🟥
+- Performing device value threshold checks inside Tauri commands ← 🟥
+- Swallowing `PlcError` and returning a fallback value like `Ok(vec![0])` ← 🟥
+
+---
+
+## Contract 3: Error Transparency
+
+All variants of `PlcError` must be propagated **as-is** to the frontend.
 
 ```
-Connection(io::Error)  →  フロントエンドの ConnectionStatus::Error へ
-Protocol(String)       →  フロントエンドの AlertState::ProtocolError へ
-Timeout                →  フロントエンドの ConnectionStatus::Timeout へ
+Connection(io::Error)  →  frontend ConnectionStatus::Error
+Protocol(String)       →  frontend AlertState::ProtocolError
+Timeout                →  frontend ConnectionStatus::Timeout
 ```
 
-**禁止：**
-- エラーを `unwrap_or_default()` で無音に処理する ← 🟥
-- `Protocol` エラーを `Connection` エラーとして返す（種別を偽る）← 🟥
+**Prohibited:**
+- Silently handling errors with `unwrap_or_default()` ← 🟥
+- Returning a `Protocol` error as a `Connection` error (misrepresenting the type) ← 🟥
 
 ---
 
-## 公準 4：プロトコル実装の独立性
+## Contract 4: Protocol Implementation Independence
 
-三菱とキーエンスのプロトコル実装は **互いに依存してはならない**。
+The Mitsubishi and Keyence protocol implementations must **never depend on each other**.
 
-- 共通の型（`PlcConfig`, `ReadResult`, `PlcError`）は `plc/mod.rs` にのみ定義する
-- `mitsubishi.rs` が `keyence.rs` を `use` することは禁止 ← 🟥
-- `keyence.rs` が `mitsubishi.rs` を `use` することは禁止 ← 🟥
+- Shared types (`PlcConfig`, `ReadResult`, `PlcError`) are defined only in `plc/mod.rs`
+- `mitsubishi.rs` importing `keyence.rs` is prohibited ← 🟥
+- `keyence.rs` importing `mitsubishi.rs` is prohibited ← 🟥

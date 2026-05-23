@@ -1,110 +1,108 @@
-# 設計哲学 — industrial-dashboard
+# Architectural Philosophy — industrial-dashboard
 
-> すべてのアーキテクチャ決定・コードレビュー・AI 生成コードは、この文書の公理を最高規範とする。
-
----
-
-## 三大公理
-
-### 公理 1：オペレーターの意図と物理プロトコルの直交分離
-
-「D1000 を 500ms ごとに読む」というオペレーターの意図（セマンティクス）と、  
-「3E フレームを組み立てバイナリで送出し応答をパースする」という物理計算（プロトコル）は、  
-**コードの同一関数・同一モジュール内に共存させてはならない。**
-
-- セマンティクス層（何を・いつ・なぜ）は `src/` フロントエンドのドメイン型で表現する
-- プロトコル層（どのバイト列で）は `src-tauri/src/plc/` が純粋な変換機として担う
-- 両者の唯一の接点は Tauri Command（`lib.rs`）であり、ここに意味論的判断を書いてはならない
-
-### 公理 2：SSOT — 状態はパラメータのみ、表示は常にフォワード算出
-
-PLC から読み取った生値（`PlcRawValue`）が唯一の真実（SSOT）である。  
-**UI 上の表示値を直接書き換える差分計算は禁止。**
-
-```
-PLC 生値（SSOT）  →  変換関数（スケーリング・単位換算）  →  表示値
-     ↑                                                          ↓
-  上書き禁止                                          読み取り専用
-```
-
-差分を積み重ねると浮動小数点誤差が自己増幅し、最終的に状態が破綻する。  
-状態は必ず「原点パラメータ」から毎回フォワード算出すること。
-
-### 公理 3：マッスルメモリーUX — 固定スロット・UIスレッド死守
-
-工場オペレーターは手袋をしたまま、画面を凝視せずにダッシュボードを操作する。  
-**ボタン・ステータス表示の物理的位置は状態変化によって動かしてはならない。**
-
-- 固定スロット原則：表示コンテンツが変わってもコンテナのサイズ・位置は不変
-- UIスレッド死守：PLC 通信・データ変換は Tauri コマンド（Rust/別スレッド）で処理し、メインスレッドを 1 ミリも止めない
-- アンチジッター：入力値をビューに直接ベイクせず、ドメイン状態を確定させてから単方向で同期する
+> All architecture decisions, code reviews, and AI-generated code treat the axioms in this document as the supreme authority.
 
 ---
 
-## コードガバナンス：イエロー/レッドカード制と進化型規約サイクル
+## The Three Axioms
 
-> **注意：これはランタイムのUIアラートではない。コードの品質を自律統治する開発プロセスのルールである。**
+### Axiom 1: Orthogonal Separation of Operator Intent and Physical Protocol
 
-本リポジトリのコードガバナンス（AI・人間共通）は、違反パターンの累積インクリメントによって自律進化する。
+The operator's intent ("read D1000 every 500ms") and the physical computation ("assemble a 3E frame, send as binary, parse the response") **must never coexist in the same function or module.**
 
-### 🟨 イエローカード（設計負債の警告）
+- The semantics layer (what / when / why) is expressed in domain types in the `src/` frontend
+- The protocol layer (which byte sequence) is handled as a pure converter in `src-tauri/src/plc/`
+- The only contact point between the two is the Tauri Command (`lib.rs`); semantic decisions must not be written here
 
-**定義：** 憲法（`docs/contracts/`）に未記載だが、三大公理を脅かす「危うい実装パターン」。
+### Axiom 2: SSOT — State is Parameters Only, Display is Always Forward-Calculated
 
-例（これらはイエローカードに相当する）：
-- PLC 生値を UI コンポーネント内で算術加工して `setState` する
-- `mitsubishi.rs` の中にポーリング間隔の判断ロジックを書く
-- Tauri コマンドの戻り値を UI 側でキャッシュして次のフレームで差分計算する
-
-**運用：** 同一のアンチパターンがリポジトリの別箇所で再発するたびに違反カウントをインクリメントし、リファクタリングを推奨する。
-
-### 🟥 レッドカード（マージ拒絶）
-
-**定義：** 憲法（`docs/contracts/`）で明示禁止されている実装、または同一イエローパターンの **累積 3 回超**。
-
-**運用：** コードレビュー・CI・AI レビューでマージをブロックする。
-
-### 👑 フィロソフィへの昇華（自律統治サイクル）
-
-レッドカード化した頻出アンチパターンは：
-
-1. `docs/contracts/` の該当レイヤーファイルに「禁止条項」として追記
-2. `CLAUDE.md` の「絶対禁止事項」セクションに組み込む
-3. 以降 AI（Claude）と CI が静的に自動で弾く
+The raw values read from the PLC (`PlcRawValue`) are the single source of truth (SSOT).
+**Direct mutation of display values via delta calculation is prohibited.**
 
 ```
-イエロー発生 → 別箇所で再発(×3) → レッド化
+PLC raw value (SSOT)  →  transform function (scaling, unit conversion)  →  display value
+     ↑                                                                         ↓
+  overwrite prohibited                                                   read-only
+```
+
+Accumulating deltas causes floating-point errors to self-amplify, eventually corrupting state.
+State must always be forward-calculated from "origin parameters" every time.
+
+### Axiom 3: Muscle Memory UX — Fixed Slots & UI Thread Protection
+
+Factory operators navigate the dashboard while wearing gloves, without staring at the screen.
+**The physical positions of buttons and status displays must not move due to state changes.**
+
+- Fixed-slot principle: container size and position remain invariant regardless of display content changes
+- UI thread protection: PLC communication and data transformation are handled by Tauri commands (Rust / separate thread); never stall the main thread even for 1ms
+- Anti-jitter: never bake input values directly into the view; commit domain state first, then synchronize unidirectionally
+
+---
+
+## Code Governance: Yellow/Red Card System and the Evolutionary Rule Cycle
+
+> **Note: This is not a runtime UI alert. This is a development process rule for autonomously governing code quality by both AI and humans.**
+
+Code governance in this repository (shared by AI and humans) evolves autonomously through cumulative incrementing of violation pattern counts.
+
+### 🟨 Yellow Card (Design Debt Warning)
+
+**Definition:** An "at-risk implementation pattern" that threatens the Three Axioms but is not yet recorded in the constitution (`docs/contracts/`).
+
+Examples (these qualify as yellow cards):
+- Arithmetic manipulation of PLC raw values inside a UI component with `setState`
+- Writing polling interval decision logic inside `mitsubishi.rs`
+- Caching Tauri command return values on the UI side and computing deltas in the next frame
+
+**Process:** Each time the same antipattern recurs in a different part of the repository, increment the violation count and recommend refactoring.
+
+### 🟥 Red Card (Merge Rejection)
+
+**Definition:** An implementation explicitly prohibited in the constitution (`docs/contracts/`), or the **same yellow pattern accumulated more than 3 times**.
+
+**Process:** Block in code review, CI, and AI review.
+
+### 👑 Ascension to Philosophy (Autonomous Governance Cycle)
+
+Frequently-occurring antipatterns that have been red-carded:
+
+1. Add a "prohibition clause" to the relevant layer file in `docs/contracts/`
+2. Incorporate into the "Absolute Prohibitions" section of `CLAUDE.md`
+3. AI (Claude) and CI will then automatically reject them statically
+
+```
+Yellow card → recurs elsewhere (×3) → Red card
         ↓
-  docs/contracts/ に禁止条項追記
+  Add prohibition clause to docs/contracts/
         ↓
-  CLAUDE.md の絶対禁止に昇華
+  Ascend to CLAUDE.md Absolute Prohibitions
         ↓
-  AI・CI が自動でブロック（永続化）
+  AI and CI automatically block (permanent)
 ```
 
 ---
 
-## メタ・トポロジー
+## Meta Topology
 
 ```
-       👑【 PHILOSOPHY.md（本文書）】 ─── すべての公理（最高規範）
+       👑【 PHILOSOPHY.md (this document) 】 ─── All axioms (supreme authority)
                     ↓
-       📝【  docs/adr/  】 ─────────── 公理を具現化する統治憲法（ADR-001〜）
+       📝【  docs/adr/  】 ─────────────────── Governance constitution embodying axioms (ADR-001–)
                     ↓
-       📋【 docs/contracts/ 】 ──────── 各レイヤーの「破ってはいけない公準」
+       📋【 docs/contracts/ 】 ──────────────── Per-layer "inviolable contracts"
                     ↓
-       🔒【 src/types/branded.ts 】 ── コンパイルタイムのコンテキスト隔離
+       🔒【 src/types/branded.ts 】 ──────────── Compile-time context isolation
                     ↓
-【UI層 / ドメイン層 / プロトコル層 / 非同期インフラ層】 ─── 公準に従う実体
+【UI layer / Domain layer / Protocol layer / Async infra layer】 ─── Entities following contracts
 ```
 
 ---
 
-## 関連文書
+## Related Documents
 
-- [ADR-001](./docs/adr/adr-001-framework.md) — フレームワーク選定
-- [ADR-004](./docs/adr/adr-004-ux-fixed-slot-policy.md) — UX 固定スロットポリシー
-- [ADR-005](./docs/adr/adr-005-ssot-state-management.md) — SSOT 状態管理戦略
-- [ADR-006](./docs/adr/adr-006-yellow-red-card-governance.md) — イエロー/レッドカード・ガバナンス
-- [ADR-007](./docs/adr/adr-007-branded-types.md) — ブランド型戦略
-- [docs/contracts/](./docs/contracts/) — レイヤー別公準
+- [ADR-001](./docs/adr/adr-001-framework.md) — Framework selection
+- [ADR-004](./docs/adr/adr-004-ux-fixed-slot-policy.md) — UX fixed-slot policy
+- [ADR-005](./docs/adr/adr-005-ssot-state-management.md) — SSOT state management strategy
+- [ADR-006](./docs/adr/adr-006-yellow-red-card-governance.md) — Yellow/Red card governance
+- [ADR-007](./docs/adr/adr-007-branded-types.md) — Branded type strategy
+- [docs/contracts/](./docs/contracts/) — Per-layer contracts

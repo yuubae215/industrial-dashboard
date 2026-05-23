@@ -1,38 +1,47 @@
-# イエローカード記録台帳
+# Yellow Card Ledger
 
-> **目的:** 設計哲学（PHILOSOPHY.md）の公理を脅かす「危うい実装パターン」を追跡し、  
-> 累積カウントが 3 を超えた時点でレッドカード化 → `docs/contracts/` への昇華を判断する。
+> **Purpose:** Track "at-risk implementation patterns" that threaten the design philosophy (PHILOSOPHY.md) axioms.
+> When the cumulative count exceeds 3, escalate to red card → evaluate ascension to `docs/contracts/`.
 >
-> **運用ルール（ADR-006）:**  
-> - 同一パターンを別箇所で発見したら該当エントリの `locations` と `count` を更新する  
-> - `count >= 3` になったら PR にてレッドカード発行 + contracts への昇華を提案する  
-> - contracts に昇華済みのエントリはこのファイルから削除し、`[昇華済み]` とコメントする
+> **Operating Rules (ADR-006):**
+> - When the same pattern is found in a different location, update the relevant entry's `locations` and `count`
+> - When `count >= 3`, issue a red card via PR + propose ascension to contracts
+> - Entries that have ascended to contracts are removed from this file and marked `[ascended]`
 
 ---
 
-## アクティブなイエローカード
+## Active Yellow Cards
 
-*現時点では記録なし。*
+## YC-001: Side effects executed via `useState` initializer during render
+
+- **Discovered:** 2026-05-23
+- **Violates Axiom:** Axiom 2 (SSOT — no side effects during render), Axiom 3 (UI thread protection)
+- **Locations:**
+  - `src/components/Dashboard.tsx:53` — `setInterval` set up inside `useState` initializer (cleanup never called)
+  - `src/components/Dashboard.tsx:72` — Zustand action `setThreshold` called inside `useState` initializer during render
+- **Pattern:** Using `useState(() => { sideEffect() })` as a substitute for `useEffect`. The React `useState` initializer runs only once on mount and its return value is stored as initial state — React never calls it as a cleanup function. This causes timer leaks and undefined behavior in React 18 Concurrent Mode when external state is mutated during the render phase.
+- **Count:** 2 / 3
+- **Status:** Monitoring — fixed in this PR; watching for recurrence
 
 ---
 
-## 昇華済みパターン（参考）
+## Ascended Patterns (Reference)
 
-*現時点では記録なし。*
+*None yet.*
 
 ---
 
-## エントリフォーマット
+## Entry Format
 
 ```markdown
-## YC-NNN: パターンの短い説明
+## YC-NNN: Short description of the pattern
 
-- **発見日:** YYYY-MM-DD
-- **違反する公理:** 公理1 / 公理2 / 公理3
-- **場所:**
+- **Discovered:** YYYY-MM-DD
+- **Violates Axiom:** Axiom 1 / Axiom 2 / Axiom 3
+- **Locations:**
   - `src/components/Foo.tsx:42`
   - `src/components/Bar.tsx:17`
-- **パターンの説明:** 何が危うい実装なのかを1〜2文で説明する
-- **カウント:** N / 3
-- **ステータス:** 監視中 / レッドカード発行済み / 昇華済み
+- **Pattern:** Describe in 1–2 sentences what makes this implementation risky
+- **Count:** N / 3
+- **Status:** Monitoring / Red card issued / Ascended
 ```

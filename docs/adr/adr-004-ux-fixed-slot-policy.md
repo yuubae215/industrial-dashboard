@@ -1,73 +1,73 @@
-# ADR-004: UX 固定スロットポリシー（マッスルメモリーUI）
+# ADR-004: UX Fixed-Slot Policy (Muscle Memory UI)
 
-## ステータス
+## Status
 
-承認済み（Accepted: 2026-05-23）
+Accepted (2026-05-23)
 
-## コンテキスト（背景）
+## Context
 
-工場のオペレーターは以下の環境でダッシュボードを操作する：
+Factory operators interact with the dashboard under the following conditions:
 
-- 手袋を着用しておりタッチ精度が低い
-- 大型モニターを遠目から、またはタブレットを持ちながら操作する
-- アラート発生時に焦った状態で素早く操作する必要がある
+- Wearing gloves, which reduces touch accuracy
+- Operating from a distance on large monitors or while holding a tablet
+- Needing to act quickly under stress during alarm events
 
-従来の「コンテキストに応じてボタンを動的に表示/非表示・左詰め配置する」UIは、オペレーターに対して毎回「今どこにボタンがあるか」を視覚的に探索させる認知負荷を強いる。これはヒューマンエラーの温床となる。
+Traditional UIs that dynamically show/hide buttons or use left-aligned layouts based on context force operators to visually search for button positions on every interaction. This creates cognitive load and is a breeding ground for human error.
 
-## 検討した選択肢
+## Options Considered
 
-| 選択肢 | 説明 | 問題点 |
-|--------|------|--------|
-| A. 動的表示（左詰め） | 有効なボタンのみ表示し、左から順に詰める | ボタン位置が状態で変わりマッスルメモリーが成立しない |
-| B. 固定スロット（採用） | 役割ごとにスロット位置を固定。無効時はグレーアウト | 空きスロットが生じるが、身体記憶が成立する |
-| C. フローティングメニュー | FAB + 展開メニュー | 展開操作が必要で、緊急時の操作速度が落ちる |
+| Option | Description | Problem |
+|--------|-------------|---------|
+| A. Dynamic display (left-aligned) | Only show active buttons, packed left | Button positions shift with state; muscle memory cannot form |
+| B. Fixed slots (adopted) | Lock slot positions by role; disabled = greyed out | Empty slots appear, but physical memory can be established |
+| C. Floating menu | FAB + expand menu | Requires an expand action; reduces speed during emergencies |
 
-## 意思決定
+## Decision
 
-**固定スロットポリシー（選択肢 B）を採用する。**
+**Adopt the fixed-slot policy (Option B).**
 
-レイアウト規約：
+Layout rules:
 
 ```
 ┌─────────────────────────────────────┐
-│ [接続状態]              [システム設定] │  ← ヘッダー固定行
+│ [Connection Status]    [System Config] │  ← Fixed header row
 ├─────────────────────────────────────┤
 │                                     │
-│         メインコンテンツ領域          │
+│         Main Content Area           │
 │                                     │
 ├─────────────────────────────────────┤
-│ [スロット0]  [スロット1]  [スロット2]  [スロット3] │  ← フッター固定行（4スロット）
+│ [Slot 0]  [Slot 1]  [Slot 2]  [Slot 3] │  ← Fixed footer row (4 slots)
 └─────────────────────────────────────┘
 ```
 
-スロット役割は永続的に固定する（状態によって入れ替えない）：
+Slot roles are permanently fixed (never swap based on state):
 
-| スロット | 役割 | 無効時の表示 |
-|---------|------|------------|
-| 0（左端） | キャンセル / 戻る | グレーアウト |
-| 1 | コンテキスト操作 A | グレーアウト |
-| 2 | コンテキスト操作 B | グレーアウト |
-| 3（右端） | 決定 / 実行 | グレーアウト |
+| Slot | Role | When Disabled |
+|------|------|---------------|
+| 0 (leftmost) | Cancel / Back | Greyed out |
+| 1 | Context action A | Greyed out |
+| 2 | Context action B | Greyed out |
+| 3 (rightmost) | Confirm / Execute | Greyed out |
 
-## 根拠
+## Rationale
 
-1. **マッスルメモリーの成立:** 「右端＝決定」「左端＝キャンセル」が身体的に刻まれることで、視線を向けずに操作できる
-2. **認知負荷ゼロ:** 無効ボタンはグレーアウト表示であり「存在するが押せない」ことが直感的にわかる
-3. **アクセシビリティ:** スクリーンリーダーや外部入力デバイス（ハードキー）のフォーカス位置も固定できる
+1. **Muscle memory formation:** "Rightmost = confirm" and "leftmost = cancel" become physically ingrained, allowing operation without looking
+2. **Zero cognitive load:** Disabled buttons are visually greyed out — "it exists but can't be pressed" is intuitively clear
+3. **Accessibility:** Focus positions for screen readers and external input devices (hard keys) can also be fixed
 
-## 実装上の禁止事項
+## Implementation Prohibitions
 
-- `display: none` でボタンを物理的に消してはならない（`disabled` 属性 + グレーアウトで表現すること）
-- 状態変化によってスロットのインデックスを入れ替えてはならない
-- コンテナのサイズを内容に応じて自動縮小させてはならない
+- Never use `display: none` to physically remove a button (use `disabled` attribute + greyed-out styling instead)
+- Never swap slot indices based on state changes
+- Never allow container size to auto-shrink based on content
 
-## 影響
+## Consequences
 
-- ADR-005（SSOT）と組み合わせ：ボタンの `disabled` 状態は SSOT から派生するゲッターで計算する
-- タブレット縦持ち対応として、フッターは画面下部に sticky で固定する
+- Combined with ADR-005 (SSOT): button `disabled` state is computed via getters derived from SSOT
+- For tablet portrait orientation, the footer is sticky at the bottom of the screen
 
-## 関連 ADR
+## Related ADRs
 
-- [PHILOSOPHY.md](../../PHILOSOPHY.md) — 公理3（マッスルメモリーUX）
-- [ADR-005](./adr-005-ssot-state-management.md) — SSOT 状態管理
-- [docs/contracts/ui-layer.md](../contracts/ui-layer.md) — UI レイヤー公準
+- [PHILOSOPHY.md](../../PHILOSOPHY.md) — Axiom 3 (Muscle Memory UX)
+- [ADR-005](./adr-005-ssot-state-management.md) — SSOT state management
+- [docs/contracts/ui-layer.md](../contracts/ui-layer.md) — UI layer contracts

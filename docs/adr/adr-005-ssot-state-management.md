@@ -1,84 +1,84 @@
-# ADR-005: SSOT 状態管理戦略
+# ADR-005: SSOT State Management Strategy
 
-## ステータス
+## Status
 
-承認済み（Accepted: 2026-05-23）
+Accepted (2026-05-23)
 
-## コンテキスト（背景）
+## Context
 
-産業用ダッシュボードでは複数 PLC から 500ms ごとにデータが流れ込む。このデータをどう保持するかの選択が、バグの温床になるかどうかを決定する。
+In this industrial dashboard, data flows in from multiple PLCs every 500ms. How this data is stored is the primary factor determining whether bugs arise.
 
-過去に類似システムで発生したバグのパターン：
-- PLC 生値をUIコンポーネントが受け取り、そのコンポーネント内で「前回値との差分」を加算して表示値を更新
-- 通信エラー後の再接続時に前回値が残留し、誤った差分が加算され続ける
-- 結果として表示値が現実と乖離し、オペレーターが誤判断する
+Bug patterns observed in similar past systems:
+- A UI component receives a PLC raw value, then accumulates "delta from the previous value" internally to update the display value
+- After a communication error and reconnection, the stale previous value remains, causing incorrect deltas to accumulate
+- The display value drifts from reality, leading operators to make wrong decisions
 
-この問題の根本原因は「差分の積み重ね（デルタ計算）」が状態として保存されることにある。
+The root cause is that "delta accumulation" is saved as state.
 
-## 検討した選択肢
+## Options Considered
 
-| 選択肢 | 説明 | 問題点 |
-|--------|------|--------|
-| A. 差分更新（コンポーネントローカル） | 各コンポーネントが前回値を保持して差分計算 | 状態が分散し自己増幅バグが発生する |
-| B. グローバルストア（差分更新） | Redux 等でグローバルに前回値を保持して差分更新 | 差分積み重ねの問題は解決しない |
-| C. SSOT + フォワード算出（採用） | PLC 生値のみを保存し、表示値は毎回純粋関数で算出 | 計算コストが毎フレーム発生するが、PLC データ量では無視できる |
+| Option | Description | Problem |
+|--------|-------------|---------|
+| A. Delta update (component-local) | Each component holds the previous value and computes deltas | State is scattered and self-amplifying bugs occur |
+| B. Global store (delta update) | Hold previous value globally (e.g., Redux) and update with deltas | The delta accumulation problem is not solved |
+| C. SSOT + forward calculation (adopted) | Store only PLC raw values; derive display values each frame via pure functions | Per-frame computation cost, negligible for PLC data volumes |
 
-## 意思決定
+## Decision
 
-**SSOT + フォワード算出（選択肢 C）を採用する。**
+**Adopt SSOT + forward calculation (Option C).**
 
-状態管理の原則：
+State management principles:
 
 ```
-【保存してよいもの（SSOT）】
-  - PLC から受信した生値: PlcRawValue[]
-  - タイムスタンプ: number (Unix ms)
-  - 接続状態: ConnectionStatus
+[What MAY be stored (SSOT)]
+  - Raw values received from PLC: PlcRawValue[]
+  - Timestamp: number (Unix ms)
+  - Connection status: ConnectionStatus
 
-【保存してはいけないもの（派生値）】
-  - スケーリング済みの工学値（毎回算出すること）
-  - 前回値との差分
-  - 警告フラグ（しきい値との比較結果）
-  - UI の表示用文字列（フォーマット済み値）
+[What MUST NOT be stored (derived values)]
+  - Scaled engineering values (compute every time)
+  - Delta from previous value
+  - Alert flags (threshold comparison results)
+  - Formatted display strings
 ```
 
-状態管理ライブラリは **Zustand** を採用する：
-- 最小限の API でSSOT原則を強制しやすい
-- React の外からも状態を読める（Tauri イベントリスナーとの親和性が高い）
-- Redux より設定が少なく、Coding Agent が正しく扱いやすい
+State management library: **Zustand**
+- Minimal API that makes SSOT principles easy to enforce
+- State can be read outside React (good affinity with Tauri event listeners)
+- Less boilerplate than Redux; easier for the Coding Agent to use correctly
 
-## ストアの構造（概要）
+## Store Structure (Overview)
 
 ```typescript
 interface PlcStore {
-  // SSOT: PLC 生値のみ保存
+  // SSOT: store only PLC raw values
   rawValues: Map<string, PlcRawValue[]>
   timestamps: Map<string, number>
   connectionStatus: Map<string, ConnectionStatus>
 
-  // アクション（Tauri イベントから呼ばれる）
+  // Actions (called from Tauri events)
   updateRawValues: (plcId: string, values: PlcRawValue[], ts: number) => void
   setConnectionStatus: (plcId: string, status: ConnectionStatus) => void
 }
 
-// 表示値は derived（ゲッター）で毎回算出する
+// Display values computed as derived (getter) each time
 const engineeringValue = (raw: PlcRawValue, scale: number): EngineeringValue =>
   (raw * scale) as EngineeringValue
 ```
 
-## 根拠
+## Rationale
 
-1. **バグの自己増幅を根絶:** 差分が蓄積されないため、通信エラー後の再接続で状態が自動的にクリーンになる
-2. **予測可能性:** 同じ SSOT から同じ関数を通せば必ず同じ表示値になる（純粋関数の性質）
-3. **AI 生成コードの安全性:** 「差分を加算する」という誘惑的なパターンをアーキテクチャレベルで禁じることで、Coding Agent が誤ったコードを生成しにくくなる
+1. **Eliminate self-amplifying bugs:** With no delta accumulation, state is automatically clean after a communication error and reconnection
+2. **Predictability:** The same pure function applied to the same SSOT always produces the same display value
+3. **Safety of AI-generated code:** Prohibiting "add to delta" patterns at the architecture level reduces the chance of the Coding Agent generating incorrect code
 
-## 影響
+## Consequences
 
-- ブランド型（ADR-007）と組み合わせ：`PlcRawValue` と `EngineeringValue` を混ぜた計算はコンパイルエラーになる
-- イエロー/レッドカード（ADR-006）との連動：差分計算パターンを発見したらイエローカードを発行する
+- Combined with branded types (ADR-007): mixing `PlcRawValue` and `EngineeringValue` in arithmetic causes a compile error
+- Combined with yellow/red cards (ADR-006): discovering a delta-calculation pattern triggers a yellow card
 
-## 関連 ADR
+## Related ADRs
 
-- [PHILOSOPHY.md](../../PHILOSOPHY.md) — 公理2（SSOT）
-- [ADR-007](./adr-007-branded-types.md) — ブランド型
-- [docs/contracts/domain-layer.md](../contracts/domain-layer.md) — ドメインレイヤー公準
+- [PHILOSOPHY.md](../../PHILOSOPHY.md) — Axiom 2 (SSOT)
+- [ADR-007](./adr-007-branded-types.md) — Branded types
+- [docs/contracts/domain-layer.md](../contracts/domain-layer.md) — Domain layer contracts

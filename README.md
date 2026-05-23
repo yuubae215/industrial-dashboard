@@ -1,124 +1,124 @@
-# industrial-dashboard 🏭
+# industrial-dashboard
 
-産業用機器の監視・制御を行うリアルタイムダッシュボード（Tauri v2 + React 19 + TypeScript）。
+Real-time industrial monitoring and control dashboard built with **Tauri v2**, **React 19**, and **TypeScript**.
 
-> **最高規範:** すべての実装判断は [PHILOSOPHY.md](./PHILOSOPHY.md) の三大公理に従います。開発前に必ず一読してください。
+> **Supreme Authority:** All implementation decisions follow the Three Axioms in [PHILOSOPHY.md](./PHILOSOPHY.md). Read it before contributing.
 
-## 特徴
+## Features
 
-- **MCプロトコル（3Eフレーム）による統一通信:** 各社PLC（三菱MELSEC、キーエンスKVのMC互換モード）の通信プロトコルをMCプロトコルに一本化。フロントエンドの状態管理と型定義をシンプルに統治しています。
-- **デバッグ・デバイスウォッチウィンドウ内蔵:** GxWorks3のウォッチウィンドウを模したデバッグUIを内蔵し、DM/Dアドレスの強制読み書きが即座に可能です。
-- **堅牢なセキュリティ（mTLS）:** パスワード保護された.p12クライアント証明書をRustバックエンドのメモリ内のみで保持する相互TLS認証を実装。
+- **Unified MC Protocol (3E frame) pipeline** — Standardizes communication with multiple PLC vendors (Mitsubishi MELSEC and Keyence KV in MC-compatible mode) into a single binary TCP protocol stack, keeping frontend state management and type definitions simple and governable.
+- **Engineering watch window** — Built-in debug UI modeled after GX Works3's watch window, enabling instant forced read/write operations on DM/D registers from the dashboard.
+- **Hardened mTLS security** — Mutual TLS authentication using password-protected .p12 client certificates held exclusively in Rust backend memory.
 
-## 動作・ビルド環境要件
+## Requirements
 
-### フロントエンド
+### Frontend
 
 - **Node.js**: v20.x LTS
-- **npm**: v9.x 以上
+- **npm**: v9.x or higher
 
-### バックエンド
+### Backend
 
-- **Rust**: stable 1.75.0 以上
+- **Rust**: stable 1.75.0 or higher
 
-### Linux（Ubuntu/Debian）— Tauri v2 WebViewビルドに必須
+### Linux (Ubuntu/Debian) — Required for Tauri v2 WebView compilation
 
 ```bash
 sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev
 ```
 
-確認：
+Verify:
 
 ```bash
 pkg-config --exists webkit2gtk-4.1 && echo "OK"
 ```
 
-### Windows（推奨開発環境）
+### Windows (recommended development environment)
 
-1. **Build Tools for Visual Studio 2022**（商用利用可・無償）
-   - [ダウンロードページ](https://visualstudio.microsoft.com/downloads/)の「すべてのダウンロード」→「Build Tools for Visual Studio 2022」
-   - ワークロード「**C++ によるデスクトップ開発**」を選択してインストール
-   - ※ Visual Studio Community は商用利用に制限あり（詳細は [ADR-001](docs/adr/adr-001-framework.md)）
-2. **Rust（rustup）**: https://rustup.rs から `rustup-init.exe` をダウンロードして実行
+1. **Build Tools for Visual Studio 2022** (free for commercial use)
+   - Download from the [Visual Studio downloads page](https://visualstudio.microsoft.com/downloads/) under "All Downloads" → "Build Tools for Visual Studio 2022"
+   - Select the **"Desktop development with C++"** workload
+   - Note: Visual Studio Community has commercial use restrictions (see [ADR-001](docs/adr/adr-001-framework.md))
+2. **Rust (rustup)**: Download and run `rustup-init.exe` from https://rustup.rs
 
 ### macOS
 
 ```bash
 xcode-select --install
-# その後 https://rustup.rs から Rust をインストール
+# Then install Rust from https://rustup.rs
 ```
 
-## 開発手順
+## Getting Started
 
-### 1. 依存関係のインストール
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2. 検証用モックサーバーの起動（実機がない環境）
+### 2. Start mock servers (for environments without physical hardware)
 
 ```bash
-# テスト用SSL証明書・.p12の自動生成
+# Generate test SSL certificates and .p12 bundles
 npm run mock:gen-certs
 
-# 三菱/キーエンス(MC互換)用のMCプロトコルモックサーバー (Port: 5001)
+# MC Protocol mock server for Mitsubishi/Keyence (MC-compatible) — Port 5001
 npm run mock:mitsubishi
 
-# mTLS認証付きHTTPSモックサーバー (Port: 8443)
+# mTLS-authenticated HTTPS mock server — Port 8443
 npm run mock:https
 ```
 
-### 3. アプリケーションの起動
+### 3. Run the application
 
 ```bash
-# TypeScriptの型チェック + Viteビルド
+# TypeScript type check + Vite build
 npm run build
 
-# Tauri開発サーバーの起動（初回はRustコンパイルで数分かかる）
+# Start Tauri dev server (first run takes several minutes for Rust compilation)
 npm run tauri dev
 ```
 
-## Tauri Command 一覧
+## Tauri Commands
 
-| コマンド | 説明 |
+| Command | Description |
 |---|---|
-| `plc_read_mitsubishi` | MCプロトコル 3Eフレームによるデバイス一括読み出し（D/M/W/X/Y/B） |
-| `plc_write_mitsubishi` | MCプロトコル 3Eフレームによるデバイス書き込み |
-| `mtls_get` | mTLS認証付きGETリクエスト |
-| `mtls_post` | mTLS認証付きPOSTリクエスト |
+| `plc_read_mitsubishi` | Batch device read via MC Protocol 3E frame (D/M/W/X/Y/B) |
+| `plc_write_mitsubishi` | Device write via MC Protocol 3E frame |
+| `mtls_get` | GET request with mTLS authentication |
+| `mtls_post` | POST request with mTLS authentication |
 
-## アーキテクチャ
+## Architecture
 
 ```
-[フロントエンド（React / TypeScript）]
-        │ Tauri IPC（invoke / emit）
+[Frontend (React / TypeScript)]
+        │ Tauri IPC (invoke / emit)
         ▼
-[バックエンド（Rust）]
-   ├── MCプロトコル TCP ──► 三菱 PLC / キーエンス PLC（MC互換モード）
-   └── mTLS (reqwest) ───► ローカル Web サーバー
+[Backend (Rust)]
+   ├── MC Protocol TCP ──► Mitsubishi PLC / Keyence PLC (MC-compatible mode)
+   └── mTLS (reqwest)  ──► Local web server
 ```
 
-詳細は [docs/adr/](docs/adr/) を参照。
+See [docs/adr/](docs/adr/) for detailed architecture decisions.
 
-## GitHub Pages デモページ
+## Demo (GitHub Pages)
 
-Tauriのデスクトップ機能を除いたフロントエンドUI/UXをブラウザ上で確認できるデモページをGitHub Pagesに自動デプロイしています。
+A frontend-only demo (excluding Tauri desktop features) is automatically deployed to GitHub Pages, allowing UI/UX verification in the browser.
 
-- **デモURL:** `https://yuubae215.github.io/industrial-dashboard/`
-- **制約:** ブラウザのセキュリティ制限により、実機PLCへの直接TCPソケット通信は行えません。UIとデータフローの確認を目的としています。
+- **Demo URL:** `https://yuubae215.github.io/industrial-dashboard/`
+- **Limitation:** Direct TCP socket communication with physical PLCs is not possible due to browser security restrictions. The demo is for verifying UI and data flow only.
 
-デプロイはGitHub Actionsで自動化されています（`.github/workflows/deploy-demo.yml`）。
-リポジトリの Settings > Pages > Source が「**GitHub Actions**」に設定されていることを確認してください。
+Deployment is automated via GitHub Actions (`.github/workflows/deploy-demo.yml`).
+Ensure the repository Settings → Pages → Source is set to **"GitHub Actions"**.
 
-## 参照ドキュメント
+## Reference Documents
 
-| ドキュメント | 内容 |
+| Document | Content |
 |---|---|
-| [PHILOSOPHY.md](./PHILOSOPHY.md) | 設計哲学（最高規範） |
-| [docs/adr/](./docs/adr/) | アーキテクチャ意思決定記録 |
-| [docs/contracts/ui-layer.md](./docs/contracts/ui-layer.md) | UIレイヤー公準 |
-| [docs/contracts/domain-layer.md](./docs/contracts/domain-layer.md) | ドメインレイヤー公準 |
-| [docs/contracts/plc-protocol-layer.md](./docs/contracts/plc-protocol-layer.md) | PLCプロトコルレイヤー公準 |
-| [docs/contracts/async-infra-layer.md](./docs/contracts/async-infra-layer.md) | 非同期インフラレイヤー公準 |
-| [docs/governance/yellow-cards.md](./docs/governance/yellow-cards.md) | イエローカード追跡台帳 |
+| [PHILOSOPHY.md](./PHILOSOPHY.md) | Design philosophy (supreme authority) |
+| [docs/adr/](./docs/adr/) | Architecture Decision Records |
+| [docs/contracts/ui-layer.md](./docs/contracts/ui-layer.md) | UI layer contracts |
+| [docs/contracts/domain-layer.md](./docs/contracts/domain-layer.md) | Domain layer contracts |
+| [docs/contracts/plc-protocol-layer.md](./docs/contracts/plc-protocol-layer.md) | PLC protocol layer contracts |
+| [docs/contracts/async-infra-layer.md](./docs/contracts/async-infra-layer.md) | Async infrastructure layer contracts |
+| [docs/governance/yellow-cards.md](./docs/governance/yellow-cards.md) | Yellow card tracking ledger |
