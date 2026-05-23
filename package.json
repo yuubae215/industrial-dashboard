@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "packageManager": "pnpm@10.31.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -20,6 +21,9 @@
     "react-dom": "^19.1.0",
     "recharts": "^3.8.1",
     "zustand": "^5.0.13"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

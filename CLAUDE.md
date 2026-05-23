@@ -25,16 +25,16 @@ pkg-config --exists webkit2gtk-4.1 && echo "OK"
 
 ```bash
 # Install frontend dependencies
-npm install
+pnpm install
 
 # TypeScript type check (detects branded type misuse errors)
-npm run build
+pnpm build
 
 # Rust backend compile check (requires Linux libraries)
 cd src-tauri && cargo check
 
 # Start dev server (first run takes several minutes for Rust compilation)
-npm run tauri dev
+pnpm tauri dev
 ```
 
 ## Project Structure
