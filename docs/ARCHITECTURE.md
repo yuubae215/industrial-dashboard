@@ -151,35 +151,122 @@ Hard constraints (from `docs/contracts/plc-protocol-layer.md`):
 
 ---
 
-## 4. Desktop Layout Topology (ADR-008)
+## 4. Layout Topology by Viewport (ADR-008 + ADR-009)
+
+The system morphs its layout topology at the `768px` breakpoint. **`display: none` is absolutely
+prohibited.** The same component tree adapts via `isMobile` style tokens.
+
+### 4a. Desktop (≥ 768px) — IDE High-Density Engine Memory
 
 ```
++-----------------------------------------------------------------------+
+| MENU BAR (28px) [Project][View][Online][Tools]  MELSEC•  KV•         |
++-----------------------------------------------------------------------+
+| HEADER (48px)  INDUSTRIAL DASHBOARD — 500ms          HH:MM:SS        |
 +------------+----------------------------------+-----------+
 | LEFT       |         MAIN CONTENT             | RIGHT     |
 | SIDEBAR    |                                  | SIDEBAR   |
-| (200px)    |  Dashboard / MetricCards /       | (300px)   |
-|            |  RealtimeTrendChart /            |           |
-| Navigation |  WatchWindow                     | Alarm     |
-| views      |                                  | Panel     |
-| ---------- |                                  |           |
+| (200px)    |  RealtimeTrendChart /            | (300px)   |
+|            |  WatchWindow                     |           |
+| PLC Tree   |                                  | Alarm     |
+| ---------- |                                  | Panel     |
 | Fixed      |                                  |           |
-| Control    |                                  |           |
 | Slots 0-3  |                                  |           |
+| (vertical) |                                  |           |
 +------------+----------------------------------+-----------+
 | STATUS BAR (28px): mode | polling | tag count             |
 +-------------------------------------------------------+
 ```
 
+### 4b. Mobile (< 768px) — Glove-Friendly Industrial Tablet
+
+```
++-----------------------------------------------------------------------+
+| HEADER (48px)  INDUSTRIAL DASHBOARD              HH:MM:SS            |
++-----------------------------------------------------------------------+
+| MAIN CONTENT AREA (flex: 1, overflowY: auto, internal scroll)        |
+|   WatchWindow / RealtimeTrendChart                                    |
++-----------------------------------------------------------------------+
+| ALARM PANEL (140px, compact, overflowY: auto)                        |
++-----------------------------------------------------------------------+
+| FIXED FOOTER SLOTS (64px, 4-col grid — each ≥ 44px touch target)    |
+| [<- Back (disabled)] [Settings] [Trend] [Maintenance]                |
++-----------------------------------------------------------------------+
+```
+
 Slot invariance rules (identical to tablet footer variant from ADR-004):
-- Slot 0 (top): Cancel / Back
-- Slot 1: Context action A
-- Slot 2: Context action B
-- Slot 3 (bottom): Confirm / Execute
+- Slot 0: Cancel / Back — reserved, always disabled
+- Slot 1: Settings — opens ConnectionSettings
+- Slot 2: Trend toggle
+- Slot 3: Maintenance toggle
 - Slots are disabled (greyed) when unavailable — never physically removed
 
 ---
 
-## 5. Branded Type Hierarchy
+## 5. Form Layout Adaptation (ADR-009)
+
+Connection settings and parameter dialogs adapt their form layout across the breakpoint,
+using the **same component** with different style tokens.
+
+### Desktop form (≥ 768px): IDE high-density horizontal grid
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ Mitsubishi MELSEC                                             │
+│ ┌────────────────────────┬─────────────┬───────────────────┐ │
+│ │ Host / IP Address      │ Port        │ Timeout (ms)      │ │
+│ │ 192.168.0.1            │ 8502        │ 3000              │ │
+│ └────────────────────────┴─────────────┴───────────────────┘ │
+└───────────────────────────────────────────────────────────────┘
+                                    [Cancel] [Save & Apply]
+```
+
+- `gridTemplateColumns: '1fr 110px 130px'` — mirrors GX Works parameter form density
+- Inputs: `padding: 8px 10px`, `fontSize: 13px` — compact, keyboard-navigable
+- Dialog anchors at center of viewport
+
+### Mobile form (< 768px): glove-friendly vertical stack
+
+```
+┌───────────────────────────────────┐
+│ Connection Settings               │
+│                                   │
+│ Mitsubishi MELSEC                 │
+│ Host / IP Address                 │
+│ ┌─────────────────────────────┐   │
+│ │ 192.168.0.1                 │   │  ← min-height: 44px
+│ └─────────────────────────────┘   │
+│ Port                              │
+│ ┌─────────────────────────────┐   │
+│ │ 8502                        │   │  ← min-height: 44px
+│ └─────────────────────────────┘   │
+│ Timeout (ms)                      │
+│ ┌─────────────────────────────┐   │
+│ │ 3000                        │   │  ← min-height: 44px
+│ └─────────────────────────────┘   │
+│ ┌──────────────────────────────┐  │
+│ │ Save & Apply (primary)       │  │  ← min-height: 44px, order: 1
+│ └──────────────────────────────┘  │
+│ ┌──────────────────────────────┐  │
+│ │ Cancel                       │  │  ← min-height: 44px, order: 2
+│ └──────────────────────────────┘  │
+└───────────────────────────────────┘
+```
+
+- `flexDirection: 'column'` — each field full-width, stacked vertically
+- Input `minHeight: 44px` — prevents mis-tap through industrial work gloves
+- Dialog slides up from bottom (sheet pattern), `borderRadius: '12px 12px 0 0'`
+- Primary action (Save) placed first (order: 1) for glove-index accessibility
+
+### Prohibition
+
+Never build separate `<DesktopConnectionSettings>` / `<MobileConnectionSettings>` components
+and toggle them via `display: none` or `{isMobile && ...}`. The layout must morph through
+style properties on the same component — this is a 🟥 Red Card.
+
+---
+
+## 6. Branded Type Hierarchy
 
 ```
 number (raw)
@@ -198,7 +285,7 @@ Type constructors live in `src/types/branded.ts`. Direct `as` casts are a 🟥 R
 
 ---
 
-## 6. Error Propagation Contract
+## 7. Error Propagation Contract
 
 ```
 Rust PlcError variants                Frontend ConnectionStatus / AlertState
@@ -224,3 +311,4 @@ Misrepresenting error types (e.g., returning `Protocol` as `Connection`) is proh
 | [docs/contracts/async-infra-layer.md](./contracts/async-infra-layer.md) | Async infra prohibitions |
 | [docs/STATE_TRANSITIONS.md](./STATE_TRANSITIONS.md) | State machine and data flow diagrams |
 | [docs/DEVELOPMENT.md](./DEVELOPMENT.md) | Development workflow and guardrails |
+| [docs/adr/adr-009-form-layout-adaptation.md](./adr/adr-009-form-layout-adaptation.md) | Form Layout Adaptation decision record |

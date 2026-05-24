@@ -135,7 +135,7 @@ Before editing any of the following, read the corresponding specification docume
 
 | Change target | Must read before editing |
 |---|---|
-| Dashboard layout, slot positions, responsive breakpoints | `docs/ARCHITECTURE.md` §4 (Desktop Layout Topology) |
+| Dashboard layout, slot positions, responsive breakpoints | `docs/ARCHITECTURE.md` §4 + §5 (Layout Topology + Form Layout Adaptation) |
 | Tauri IPC commands or Rust protocol functions | `docs/ARCHITECTURE.md` §3 Layer 3 & 4 |
 | Zustand store fields (add, remove, rename) | `docs/STATE_TRANSITIONS.md` §2 (SSOT invariant) |
 | Polling interval or connection retry logic | `docs/STATE_TRANSITIONS.md` §6 (Polling Interval State) |
@@ -151,6 +151,19 @@ When adding or modifying any component that contains `<ResponsiveContainer>`:
 
 Violation of any item above is a 🟥 Red Card.
 
+### Dual-Context Layout Rule (IDE ↔ Glove)
+
+When editing any layout file, you must satisfy **both** form-factor contracts simultaneously:
+
+| Context | Requirement |
+|---|---|
+| Desktop (≥ 768px) | Match GX Works / IDE density: 28px MenuBar, compact header, 3-col form grids, keyboard tab-index chain |
+| Mobile (< 768px) | Glove-safe floor: every interactive element `minHeight: 44px`, inputs stacked vertically, primary action first (CSS `order: 1`) |
+
+**Absolute prohibition:** never implement `{isMobile ? <ComponentA /> : <ComponentB />}` or
+`display: none` to switch between form-factor variants. The same component instance adapts its
+`style` properties via `isMobile` token. Violation is a 🟥 Red Card (see ADR-009).
+
 ### Documentation Maintenance (co-commit rule)
 
 If your change modifies **any** of the following, update `docs/STATE_TRANSITIONS.md` in the **same commit**:
@@ -159,7 +172,8 @@ If your change modifies **any** of the following, update `docs/STATE_TRANSITIONS
 - The set of fields stored in a Zustand store (add, remove, rename)
 - The direction of data flow between layers (new IPC path, new store consumer, etc.)
 
-If your change modifies the layer topology or cross-layer boundaries, update `docs/ARCHITECTURE.md` in the same commit.
+If your change modifies the layer topology or cross-layer boundaries (including breakpoint-specific
+layout rules or Form Layout Adaptation patterns), update `docs/ARCHITECTURE.md` in the same commit.
 
 ---
 
