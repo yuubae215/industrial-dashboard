@@ -12,7 +12,11 @@ const levelLabel: Record<AlarmLevel, string> = {
   LL: 'Low-Low',
 }
 
-export const RightSidebar: React.FC = () => {
+interface RightSidebarProps {
+  style?: React.CSSProperties
+}
+
+export const RightSidebar: React.FC<RightSidebarProps> = ({ style }) => {
   const entries = useAlarmStore((s) => s.entries)
   const acknowledgeAlarm = useAlarmStore((s) => s.acknowledgeAlarm)
 
@@ -40,6 +44,7 @@ export const RightSidebar: React.FC = () => {
         background: theme.bgCard,
         borderLeft: `1px solid ${theme.border}`,
         overflow: 'hidden',
+        ...style,
       }}
     >
       {/* Panel header */}

@@ -43,6 +43,9 @@ export const FixedControlSlots: React.FC<FixedControlSlotsProps> = ({
           background: theme.bgHeader,
           borderTop: `1px solid ${theme.border}`,
           flexShrink: 0,
+          height: 64,
+          boxSizing: 'border-box',
+          width: '100%',
         }
       : {
           display: 'flex',
