@@ -4,18 +4,17 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { useAlarmMonitor } from '../store/useAlarmStore'
 import { useAlarmStore } from '../store/useAlarmStore'
 import { usePlcConfigStore, MELSEC_PLC_ID, KEYENCE_PLC_ID } from '../store/usePlcConfigStore'
+import { useDeviceConfig } from '../hooks/useDeviceConfig'
 import { RealtimeTrendChart } from './RealtimeTrendChart'
 import { WatchWindow } from './WatchWindow'
 import { LeftSidebar } from './LeftSidebar'
 import type { PlcHierarchyNode } from './LeftSidebar'
 import { FixedControlSlots } from './FixedControlSlots'
-import { RightSidebar } from './RightSidebar'
+import { DiagnosticPane } from './DiagnosticPane'
 import { StatusBar } from './StatusBar'
 import { ConnectionSettings } from './ConnectionSettings'
 import { MenuBar } from './MenuBar'
 import { theme } from '../styles/theme'
-import { asThresholdValue } from '../types/branded'
-import type { AlarmThreshold } from '../types/domain'
 import { POLLING_INTERVAL_MS } from '../config/plc'
 
 const MELSEC_ID = MELSEC_PLC_ID
@@ -23,17 +22,6 @@ const KEYENCE_ID = KEYENCE_PLC_ID
 const START_ADDRESS = 1000
 const READ_COUNT = 5
 const INTERVAL_MS = POLLING_INTERVAL_MS
-
-const MELSEC_THRESHOLD: AlarmThreshold = {
-  plcId: MELSEC_ID,
-  address: START_ADDRESS,
-  label: 'Mitsubishi Line A Furnace Temp',
-  unit: 'degC',
-  HH: asThresholdValue(2500),
-  H: asThresholdValue(2000),
-  L: asThresholdValue(500),
-  LL: asThresholdValue(200),
-}
 
 // PLC network hierarchy for left sidebar
 const PLC_NODES: PlcHierarchyNode[] = [
@@ -92,11 +80,7 @@ export const Dashboard: React.FC = () => {
   const activeAlarmCount = useAlarmStore((s) => s.entries.filter((e) => e.clearedAt === null).length)
 
   useAlarmMonitor()
-
-  const setThreshold = useAlarmStore((s) => s.setThreshold)
-  useEffect(() => {
-    setThreshold(MELSEC_THRESHOLD)
-  }, [setThreshold])
+  useDeviceConfig()
 
   usePlcPolling({
     plcId: MELSEC_ID,
@@ -265,24 +249,10 @@ export const Dashboard: React.FC = () => {
           <WatchWindow plcConfig={melsecConfig} defaultPlcId={MELSEC_ID} />
         </main>
 
-        {/* Desktop only: right sidebar (alarm panel, full height) */}
-        {!isMobile && <RightSidebar />}
       </div>
 
-      {/* Mobile only: compact alarm panel above footer slots */}
-      {isMobile && (
-        <div
-          style={{
-            height: 140,
-            flexShrink: 0,
-            width: '100%',
-            borderTop: `1px solid ${theme.border}`,
-            overflowY: 'auto',
-          }}
-        >
-          <RightSidebar style={{ width: '100%', borderLeft: 'none' }} />
-        </div>
-      )}
+      {/* ── Diagnostic pane — IDE-style bottom Output / Alarms window ─── */}
+      <DiagnosticPane isMobile={isMobile} />
 
       {/* ── Footer / Status bar ───────────────────────────────── */}
       {/* ADR-008: mobile = horizontal 4-slot footer; desktop = slim status bar */}
