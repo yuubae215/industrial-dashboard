@@ -19,6 +19,21 @@ export default defineConfig(async () => ({
     ? { alias: { "@tauri-apps/api/core": path.resolve("src/mocks/tauri-core.ts") } }
     : {},
 
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("recharts") || id.includes("d3-")) {
+              return "recharts-vendor";
+            }
+            return "vendor";
+          }
+        },
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
