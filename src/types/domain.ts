@@ -72,6 +72,11 @@ export interface WatchSlot {
   comment: string
   /** true のとき、このスロットの信号をトレンドチャートに表示する */
   isActive: boolean
+  /** アラーム閾値（plain number; alarmStore への書き込み時に asThresholdValue() 経由で変換する） */
+  thresholdHH: number | null
+  thresholdH:  number | null
+  thresholdL:  number | null
+  thresholdLL: number | null
 }
 
 // ---------------------------------------------------------------------------

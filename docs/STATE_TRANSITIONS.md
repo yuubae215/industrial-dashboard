@@ -124,13 +124,22 @@ in response to the number of active signals — this enforces Axiom 3 (anti-jitt
 
 ## 4. Alarm State Transitions
 
+**前提条件:** アラームが評価されるのは、対象アドレスが `useDebugStore.slots` に登録済み
+（`slot.plcId === plcId && slot.address === <address>`）の場合のみ。
+WatchSlot に未登録のアドレスは閾値が `useAlarmStore.thresholds` に存在していても評価されない。
+
 ```
 Normal (no active alarms)
          |
-         |  PLC value crosses threshold
-         |  (threshold comparison runs in selector, not stored)
+         |  WatchSlot にアドレスを登録 + 閾値を設定
+         |  → PLC 値が閾値を超えたとき
          v
 Active alarm  →  written to useAlarmStore
+         |
+         +--  WatchSlot からアドレスを削除
+         |         |
+         |         v
+         |    auto-cleared (clearedAt = now)
          |
          |  operator acknowledges
          v
@@ -146,39 +155,48 @@ Cleared
 ```
 
 Alarm flags are **never stored** in `usePlcStore`. They are computed by selectors each frame
-from `PlcRawValue` and threshold parameters in `PlcConfig`. Only acknowledged/cleared state
+from `PlcRawValue` and threshold parameters in `useAlarmStore`. Only acknowledged/cleared state
 is persisted in `useAlarmStore`.
+
+Cross-store gating: `_processNewValues` calls `useDebugStore.getState()` at evaluation time
+to get the current watched address set (Zustand official cross-store pattern).
 
 ---
 
 ## 5. Configuration Hydration Flow
 
-How `devices.config.json` initializes alarm thresholds in the Zustand store at boot.
+2 つの閾値ソースがある。WatchSlot 設定（localStorage）が config ファイルより優先される。
 
 ```
 [Tauri Application Boot]
          |
-         v  src-tauri/src/config/mod.rs :: load()
-[config::load()]
-         |── ~/.plc-telemetry/devices.config.json exists?
-         |        yes → parse JSON → DeviceConfig
-         |        no  → write default_config() → DeviceConfig
-         v
-[Tauri IPC: "config_load" command]
-         |  returns DeviceConfig (camelCase JSON)
-         v
-[useDeviceConfig() hook — runs once on Dashboard mount]
-         |  invoke("config_load") → .then(config => ...)
-         |                          .catch(() => FALLBACK_THRESHOLDS)
-         v  configToThresholds(config): AlarmThreshold[]
-[useAlarmStore.setThreshold(threshold)] × N signals
+         +──────────────────────────────────────────────+
+         |                                              |
+         v  src-tauri/src/config/mod.rs :: load()       v  localStorage 'watch-slots'
+[config::load()]                                 [Zustand persist rehydrate]
+         |── devices.config.json exists?                |
+         |        yes → parse JSON                      v
+         |        no  → default_config()         [useDebugStore.slots[] rehydrated]
+         v                                              |
+[Tauri IPC: "config_load"]                             |
+         v                                             |
+[useDeviceConfig() hook]                              |
+         v  configToThresholds(): AlarmThreshold[]    |
+[useAlarmStore.setThreshold()] × N                   |
+         |                                             |
+         v                                             v
+         +──────────────────────────────────────────────+
          |
-         v  Zustand store: thresholds[] updated
+         v  WatchWindow useEffect（マウント時 1 回）
+[slot.thresholdXX → buildThreshold() → asThresholdValue()]
+         |  スロット設定が config ファイル設定を上書きする
+         v
+[useAlarmStore.thresholds[] — 最終閾値セット]
+         |
 [usePlcStore.subscribe()] cross-store subscription
-         |  fires on next PLC value update
          v
 [useAlarmStore._processNewValues(plcId, addressMap)]
-         |  evaluates each threshold against current PlcRawValue
+         |  WatchSlot 登録済みアドレスのみ評価
          v
 [useAlarmStore.entries[] — active AlarmEntry records]
          |
@@ -187,9 +205,10 @@ How `devices.config.json` initializes alarm thresholds in the Zustand store at b
 ```
 
 **Invariants:**
-- `useDeviceConfig()` is the only place that calls `invoke("config_load")`
-- It is called once on Dashboard mount via `useEffect`
-- The fallback path (catch) uses the same `asThresholdValue()` constructor — no raw casts
+- `useDeviceConfig()` は `invoke("config_load")` を呼ぶ唯一の場所
+- WatchWindow の `useEffect` はマウント時 1 回、slot thresholds → alarmStore を同期する
+- どちらのパスも `asThresholdValue()` コンストラクタ経由 — 生キャストなし
+- WatchSlot に未登録のアドレスは `_processNewValues` でゲーティングされ評価されない
 
 ---
 
