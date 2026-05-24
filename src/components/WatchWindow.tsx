@@ -6,7 +6,7 @@ import { usePlcWrite } from '../hooks/usePlcWrite'
 import { asThresholdValue } from '../types/branded'
 import { theme } from '../styles/theme'
 import { TouchButton } from './TouchButton'
-import type { AlarmThreshold, PlcConfig, WatchSlot, WatchSlotIndex } from '../types/domain'
+import type { AlarmThreshold, AlarmLevel, PlcConfig, WatchSlot, WatchSlotIndex } from '../types/domain'
 
 interface PendingWrite {
   slotIndex: WatchSlotIndex
@@ -61,6 +61,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
   const toggleSlotActive = useDebugStore((s) => s.toggleSlotActive)
   const plcValues = usePlcStore((s) => s.values)
   const setThreshold = useAlarmStore((s) => s.setThreshold)
+  const alarmThresholds = useAlarmStore((s) => s.thresholds)
   const { writeMitsubishi } = usePlcWrite()
 
   // 書き込み中状態（一時的な UI インタラクション — Zustand 不要なローカル state）
@@ -78,16 +79,47 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // コンフィグ由来の閾値をスロット欄に反映する（useDeviceConfig の非同期ロード完了後に発火）
+  // 閾値未設定スロットのみ対象とし、ユーザーが明示的に設定した値は上書きしない
+  useEffect(() => {
+    const currentSlots = useDebugStore.getState().slots
+    for (const slot of currentSlots) {
+      if (slot.plcId === null || slot.address === null || hasThreshold(slot)) continue
+      const existing = alarmThresholds.find(
+        (t) => t.plcId === slot.plcId && t.address === slot.address,
+      )
+      const levels: AlarmLevel[] = ['HH', 'H', 'L', 'LL']
+      if (existing && levels.some((lv) => existing[lv] !== undefined)) {
+        updateSlot(slot.index as WatchSlotIndex, {
+          thresholdHH: existing.HH ?? null,
+          thresholdH:  existing.H  ?? null,
+          thresholdL:  existing.L  ?? null,
+          thresholdLL: existing.LL ?? null,
+        })
+      }
+    }
+  }, [alarmThresholds, updateSlot])
+
   if (!isMaintenanceMode) return null
 
   const handleAddressChange = (index: WatchSlotIndex, raw: string) => {
     setAddressInputs((prev) => ({ ...prev, [index]: raw }))
     const parsed = parseDeviceAddress(raw)
     if (parsed) {
+      // コンフィグ由来の閾値がすでに存在する場合はスロット欄にプリポピュレーション
+      const existing = useAlarmStore.getState().thresholds.find(
+        (t) => t.plcId === defaultPlcId && t.address === parsed.address,
+      )
       updateSlot(index, {
         address: parsed.address,
         deviceCode: parsed.deviceCode,
         plcId: defaultPlcId,
+        ...(existing ? {
+          thresholdHH: existing.HH ?? null,
+          thresholdH:  existing.H  ?? null,
+          thresholdL:  existing.L  ?? null,
+          thresholdLL: existing.LL ?? null,
+        } : {}),
       })
     } else if (raw === '') {
       updateSlot(index, { address: null, plcId: null })
