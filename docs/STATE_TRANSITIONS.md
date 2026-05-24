@@ -1,0 +1,239 @@
+# State Transitions and Telemetry Data Flows
+
+> All state transitions must conform to PHILOSOPHY.md Axiom 2 (SSOT) and Axiom 3 (fixed-slot / anti-jitter).
+> State mutations not described in this document require a new ADR before implementation.
+
+---
+
+## 1. ConnectionStatus State Machine
+
+Valid state transitions (from `docs/contracts/domain-layer.md` Contract 4):
+
+```
+                   invoke() called
+                        |
+   +--------------------v--------------------+
+   |              Connecting                 |
+   +--------------------+--------------------+
+                        |
+          +-------------+-------------+
+          |                           |
+          v                           v
+    Connected                     Error
+          |                           |
+          |  operator disconnect      |  Rust exponential backoff
+          v                           |  (ADR-003; frontend does NOT own timing)
+    Disconnecting                     |
+          |                           |
+          v                           v
+    Disconnected <---------+    Connecting (retry)
+                           |
+                    operator resets
+```
+
+Prohibited transitions (🟥 Red Card):
+- `Connected` → `Disconnected` directly (must pass through `Disconnecting`)
+- Any transition not in the diagram above
+- Frontend `setTimeout` for retry timing — retry belongs to the Rust-side task
+
+State is stored in `usePlcStore` as `connectionStatus: Map<string, ConnectionStatus>` keyed by `plcId`.
+The `disabled` state of fixed-slot control buttons is derived from `ConnectionStatus` via selectors — never stored separately.
+
+---
+
+## 2. Telemetry Data Lifecycle
+
+High-level flow from physical PLC register to rendered widget:
+
+```
+Physical PLC register (D1000, M0, ...)
+         |
+         |  TCP (binary 3E frame / ASCII Upper Link)
+         v
+src-tauri/src/plc/mitsubishi.rs or keyence.rs
+         |  Vec<i32> (raw register values)
+         v
+src-tauri/src/lib.rs  (Tauri Command)
+         |  serialized as JSON
+         v
+Tauri IPC boundary
+         |  invoke() in usePlcPolling.ts
+         v
+asPlcRawValue() constructor (branded type)
+         |  PlcRawValue[]
+         v
+usePlcStore.updateRawValues(plcId, values, Date.now())
+         |
+         +------------------+------------------+
+         |                  |                  |
+         v                  v                  v
+   MetricCard         RealtimeTrend       WatchWindow
+   (reads current      Chart (maps         (shows current
+   via selector)       timeline arrays     value per address)
+                       for active
+                       signal keys)
+```
+
+### SSOT invariant
+
+The store holds only:
+```typescript
+rawValues:        Map<string, PlcRawValue[]>   // keyed by plcId
+timestamps:       Map<string, number>           // Unix ms, keyed by plcId
+connectionStatus: Map<string, ConnectionStatus> // keyed by plcId
+```
+
+Everything downstream is derived each frame via pure functions. Nothing derived is stored.
+
+---
+
+## 3. Watch Window Signal Activation Flow
+
+When an operator toggles a signal checkbox in `WatchWindow`:
+
+```
+WatchWindow component
+         |  checkbox onChange
+         v
+useDashboardStore.toggleSignalActive(address: string)
+         |
+         v  mutates:
+activeSignalAddresses: string[]   (add or remove the address)
+         |
+         |  reactive selector
+         v
+RealtimeTrendChart
+         |
+         +-- activeSignalAddresses.length === 0
+         |          |
+         |          v
+         |    render empty placeholder
+         |    (container maintains fixed height — no layout shift)
+         |
+         +-- activeSignalAddresses.length > 0
+                    |
+                    v
+              map active addresses to <Line dataKey={address} />
+              (lines appear / disappear without container resize)
+```
+
+Container height is fixed (explicit pixel value on parent div). The chart never resizes
+in response to the number of active signals — this enforces Axiom 3 (anti-jitter).
+
+---
+
+## 4. Alarm State Transitions
+
+```
+Normal (no active alarms)
+         |
+         |  PLC value crosses threshold
+         |  (threshold comparison runs in selector, not stored)
+         v
+Active alarm  →  written to useAlarmStore
+         |
+         |  operator acknowledges
+         v
+Acknowledged (still active, silenced)
+         |
+         |  PLC value returns to normal range
+         v
+Cleared
+         |
+         |  auto-purge after retention period
+         v
+(removed from store)
+```
+
+Alarm flags are **never stored** in `usePlcStore`. They are computed by selectors each frame
+from `PlcRawValue` and threshold parameters in `PlcConfig`. Only acknowledged/cleared state
+is persisted in `useAlarmStore`.
+
+---
+
+## 5. Error Recovery Transitions
+
+```
+invoke() returns PlcError::Timeout or PlcError::Connection
+         |
+         v
+usePlcStore.setConnectionStatus(plcId, ConnectionStatus::Error)
+         |
+         |  Rust-side tokio task begins exponential backoff (ADR-003)
+         |  Frontend does NOT set timers or manage retry count
+         v
+usePlcStore.setConnectionStatus(plcId, ConnectionStatus::Connecting)
+         |
+         |  on success:
+         v
+usePlcStore.setConnectionStatus(plcId, ConnectionStatus::Connected)
+usePlcStore.updateRawValues(plcId, freshValues, Date.now())
+         |
+         v
+Chart retains structural height throughout (Axiom 3)
+Last cached PlcRawValue[] remains visible until overwritten
+```
+
+The chart container must not collapse or resize during error state. The `RealtimeTrendChart`
+renders the last known data points with a visual error indicator overlay — it does not unmount.
+
+---
+
+## 6. Polling Interval State (usePlcPolling)
+
+```
+Component mounts
+         |
+         v
+useEffect(() => {
+  const id = setInterval(async () => {
+    result = await invoke('plc_read_mitsubishi', { config })
+    store.updateRawValues(plcId, result.values, Date.now())
+  }, 500)
+  return () => clearInterval(id)   // cleanup on unmount
+}, [plcId])
+```
+
+State: `setInterval` handle is local to the effect. It is never stored in Zustand or component state.
+Polling interval (`500`) comes from `PlcConfig` (Rust-side SSOT) — it is never a component Prop.
+
+---
+
+## 7. Branded Type Boundary Map
+
+```
+System boundary               Constructor              Type
+──────────────────────────────────────────────────────────────
+invoke() response (JSON)  →  asPlcRawValue()       →  PlcRawValue   (SSOT)
+PlcConfig rehydration     →  asPortNumber()         →  PortNumber
+PlcConfig rehydration     →  asTimeoutMs()          →  TimeoutMs
+PlcRawValue + scale       →  (pure function)        →  EngineeringValue  (derived, not stored)
+```
+
+Crossing these boundaries without the constructor function is a 🟥 Red Card.
+
+---
+
+## Maintenance Rule
+
+If a code change modifies:
+- The set of states in any state machine above
+- The set of fields stored in a Zustand store
+- The direction of data flow between layers
+
+...then this document **must be updated in the same commit**.
+This is enforced by the AI compliance rule in `CLAUDE.md` (Documentation & Architecture Compliance section).
+
+---
+
+## Related Documents
+
+| Document | Role |
+|---|---|
+| [PHILOSOPHY.md](../PHILOSOPHY.md) | Supreme authority |
+| [docs/ARCHITECTURE.md](./ARCHITECTURE.md) | Layer topology |
+| [docs/contracts/domain-layer.md](./contracts/domain-layer.md) | SSOT and branded type contracts |
+| [docs/contracts/ui-layer.md](./contracts/ui-layer.md) | Unidirectional flow contracts |
+| [docs/contracts/async-infra-layer.md](./contracts/async-infra-layer.md) | Polling and thread contracts |
+| [ADR-005](./adr/adr-005-ssot-state-management.md) | SSOT design rationale |
+| [ADR-003](./adr/adr-003-plc-connection.md) | Connection retry strategy (Rust side) |
