@@ -23,8 +23,12 @@ pkg-config --exists webkit2gtk-4.1 && echo "OK"
 
 ## Development Commands
 
+> **Before any build:** always run `pnpm install` first. Missing node_modules causes
+> `tsc` to fail with hundreds of "Cannot find module 'react'" errors that have nothing
+> to do with the code under review.
+
 ```bash
-# Install frontend dependencies
+# Install frontend dependencies (required before every build in a fresh environment)
 pnpm install
 
 # TypeScript type check (detects branded type misuse errors)
