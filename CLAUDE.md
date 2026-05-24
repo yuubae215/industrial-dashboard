@@ -125,11 +125,52 @@ Detailed rules → [ADR-006](./docs/adr/adr-006-yellow-red-card-governance.md)
 
 ---
 
+## Documentation & Architecture Compliance
+
+> These rules apply to every code change made by AI agents and human contributors alike.
+
+### Design Alignment
+
+Before editing any of the following, read the corresponding specification document first:
+
+| Change target | Must read before editing |
+|---|---|
+| Dashboard layout, slot positions, responsive breakpoints | `docs/ARCHITECTURE.md` §4 (Desktop Layout Topology) |
+| Tauri IPC commands or Rust protocol functions | `docs/ARCHITECTURE.md` §3 Layer 3 & 4 |
+| Zustand store fields (add, remove, rename) | `docs/STATE_TRANSITIONS.md` §2 (SSOT invariant) |
+| Polling interval or connection retry logic | `docs/STATE_TRANSITIONS.md` §6 (Polling Interval State) |
+| Any Recharts chart component | `docs/DEVELOPMENT.md` §4 (Recharts Safety Guardrails) |
+
+### Chart Safety Safeguard (mandatory checklist)
+
+When adding or modifying any component that contains `<ResponsiveContainer>`:
+
+1. The immediate parent element must declare `minWidth: 0` (or `width: "100%"`) **and** an explicit pixel height
+2. Every `<Line />`, `<Bar />`, and `<Area />` node must have `isAnimationActive={false}`
+3. The Vite `manualChunks` configuration in `vite.config.ts` must not be removed or simplified
+
+Violation of any item above is a 🟥 Red Card.
+
+### Documentation Maintenance (co-commit rule)
+
+If your change modifies **any** of the following, update `docs/STATE_TRANSITIONS.md` in the **same commit**:
+
+- The set of states in any state machine (ConnectionStatus, alarm lifecycle, polling)
+- The set of fields stored in a Zustand store (add, remove, rename)
+- The direction of data flow between layers (new IPC path, new store consumer, etc.)
+
+If your change modifies the layer topology or cross-layer boundaries, update `docs/ARCHITECTURE.md` in the same commit.
+
+---
+
 ## Reference Documents
 
 | Document | Content |
 |---|---|
 | [PHILOSOPHY.md](./PHILOSOPHY.md) | Design philosophy (supreme authority) |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | System topology, layer boundaries, and prohibitions |
+| [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | Development workflow, mock servers, and guardrails |
+| [docs/STATE_TRANSITIONS.md](./docs/STATE_TRANSITIONS.md) | State machines and telemetry data flows |
 | [docs/adr/](./docs/adr/) | Architecture Decision Records |
 | [docs/contracts/ui-layer.md](./docs/contracts/ui-layer.md) | UI layer contracts |
 | [docs/contracts/domain-layer.md](./docs/contracts/domain-layer.md) | Domain layer contracts |
