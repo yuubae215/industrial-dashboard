@@ -32,6 +32,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
   const isMaintenanceMode = useDebugStore((s) => s.isMaintenanceMode)
   const slots = useDebugStore((s) => s.slots)
   const updateSlot = useDebugStore((s) => s.updateSlot)
+  const toggleSlotActive = useDebugStore((s) => s.toggleSlotActive)
   const plcValues = usePlcStore((s) => s.values)
   const { writeMitsubishi } = usePlcWrite()
 
@@ -111,6 +112,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
             <th style={thStyle}>No.</th>
             <th style={thStyle}>Device</th>
             <th style={{ ...thStyle, color: theme.normal }}>Value</th>
+            <th style={{ ...thStyle, color: theme.accent, textAlign: 'center' }}>Trend</th>
             <th style={thStyle}>Comment</th>
             <th style={thStyle}>Action</th>
           </tr>
@@ -131,7 +133,10 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
             return (
               <tr
                 key={slot.index}
-                style={{ borderBottom: `1px solid ${theme.border}` }}
+                style={{
+                  borderBottom: `1px solid ${theme.border}`,
+                  background: slot.isActive ? `${theme.accent}14` : 'transparent',
+                }}
               >
                 <td style={tdStyle}>
                   <span style={{ color: theme.textMuted }}>{slot.index}</span>
@@ -157,6 +162,31 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                   }}
                 >
                   {currentRaw !== undefined ? String(currentRaw) : '---'}
+                </td>
+
+                <td style={{ ...tdStyle, padding: '4px 6px', textAlign: 'center' }}>
+                  {slot.address !== null ? (
+                    <button
+                      onClick={() => toggleSlotActive(slot.index as WatchSlotIndex)}
+                      title={slot.isActive ? 'Remove from trend chart' : 'Add to trend chart'}
+                      style={{
+                        background: 'none',
+                        border: `1px solid ${slot.isActive ? theme.accent : theme.border}`,
+                        borderRadius: 3,
+                        cursor: 'pointer',
+                        color: slot.isActive ? theme.accent : theme.textMuted,
+                        fontSize: 16,
+                        lineHeight: 1,
+                        padding: '2px 8px',
+                        fontFamily: theme.fontMono,
+                        transition: 'color 0.15s, border-color 0.15s',
+                      }}
+                    >
+                      {slot.isActive ? '●' : '○'}
+                    </button>
+                  ) : (
+                    <span style={{ color: theme.border, fontSize: 12 }}>—</span>
+                  )}
                 </td>
 
                 <td style={{ ...tdStyle, padding: '4px 6px' }}>

@@ -70,6 +70,8 @@ export interface WatchSlot {
   deviceCode: string
   plcId: string | null
   comment: string
+  /** true のとき、このスロットの信号をトレンドチャートに表示する */
+  isActive: boolean
 }
 
 // ---------------------------------------------------------------------------

@@ -290,23 +290,17 @@ export const Dashboard: React.FC = () => {
           }}
         >
           {isTrendVisible && (
-            <section>
+            <section style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: theme.fs.xs, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.1em' }}>
                   REALTIME TREND
                 </span>
                 <span style={{ fontSize: theme.fs.xs, color: theme.textMuted }}>
-                  {MELSEC_ID} D{START_ADDRESS} &mdash; last 60s
+                  Watch Window active signals &mdash; last 60s
                 </span>
                 <div style={{ flex: 1, height: 1, background: theme.border }} />
               </div>
-              <RealtimeTrendChart
-                plcId={MELSEC_ID}
-                address={START_ADDRESS}
-                scale={0.1}
-                unit="degC"
-                threshold={MELSEC_THRESHOLD}
-              />
+              <RealtimeTrendChart />
             </section>
           )}
 

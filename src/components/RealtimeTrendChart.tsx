@@ -6,46 +6,86 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ReferenceLine,
   ResponsiveContainer,
 } from 'recharts'
+import { useDebugStore } from '../store/useDebugStore'
 import { usePlcStore } from '../store/usePlcStore'
+import { useAlarmStore } from '../store/useAlarmStore'
 import { theme, alarmLevelColor } from '../styles/theme'
-import type { AlarmThreshold } from '../types/domain'
+import type { WatchSlot, WatchSlotIndex } from '../types/domain'
 
 const WINDOW_SECONDS = 60
 
-interface RealtimeTrendChartProps {
-  plcId: string
-  address: number
-  scale?: number
-  unit?: string
-  threshold?: AlarmThreshold
+// ISA-101準拠: 低彩度・高識別性カラーパレット（最大10スロット分）
+const LINE_COLORS = [
+  '#0EA5E9', // cyan
+  '#F59E0B', // amber
+  '#6366F1', // indigo
+  '#10B981', // emerald
+  '#F43F5E', // rose
+  '#8B5CF6', // violet
+  '#06B6D4', // light cyan
+  '#D97706', // dark amber
+  '#3B82F6', // blue
+  '#EC4899', // pink
+]
+
+/** アクティブスロットを絞り込む型ガード（address・plcId が確定済みであることを保証） */
+function isReadySlot(s: WatchSlot): s is WatchSlot & { address: number; plcId: string } {
+  return s.isActive && s.address !== null && s.plcId !== null
 }
 
-export const RealtimeTrendChart: React.FC<RealtimeTrendChartProps> = ({
-  plcId,
-  address,
-  scale = 1,
-  unit = '',
-  threshold,
-}) => {
-  const trendPoints = usePlcStore((s) => s.trendHistory[plcId]?.[address] ?? [])
+/**
+ * ウォッチウィンドウでアクティブ化された信号のマルチ信号トレンドチャート。
+ * 表示する信号は useDebugStore から取得し（公理2: SSOT）、
+ * 生値は usePlcStore の trendHistory から毎回算出する（公理2: UI に前回値を持たない）。
+ */
+export const RealtimeTrendChart: React.FC = () => {
+  const slots = useDebugStore((s) => s.slots)
+  const trendHistory = usePlcStore((s) => s.trendHistory)
+  const thresholds = useAlarmStore((s) => s.thresholds)
 
-  // [UI公準3] useMemo で描画用データを変換（16ms ブロック防止）
-  const chartData = useMemo(
-    () =>
-      trendPoints.map((pt) => ({
-        t: pt.timestamp,
-        v: +(pt.value * scale).toFixed(scale < 1 ? 2 : 0),
-      })),
-    [trendPoints, scale],
-  )
+  // アドレス・plcId が確定しアクティブなスロットのみ抽出（型ガードで null を排除）
+  const activeSlots = useMemo(() => slots.filter(isReadySlot), [slots])
 
-  // オシロスコープ: X軸を固定時間窓 [now-WINDOW, now] にピン留めして波形を左流し
+  // [UI公準3] useMemo: 全アクティブ信号のトレンドを統合タイムラインに合成
+  const { chartData, signalKeys } = useMemo(() => {
+    if (activeSlots.length === 0) return { chartData: [], signalKeys: [] }
+
+    // スロットごとの信号キー（例: "D1000", "D1001"）
+    const keys = activeSlots.map((s) => `${s.deviceCode}${s.address}`)
+
+    // タイムスタンプ → 各信号の値マップを構築
+    const tsMap = new Map<number, Record<string, number>>()
+    activeSlots.forEach((slot, i) => {
+      const points = trendHistory[slot.plcId]?.[slot.address] ?? []
+      const key = keys[i]
+      points.forEach((pt) => {
+        const row = tsMap.get(pt.timestamp) ?? {}
+        row[key] = pt.value
+        tsMap.set(pt.timestamp, row)
+      })
+    })
+
+    const sorted = Array.from(tsMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([t, vals]) => ({ t, ...vals }))
+
+    return { chartData: sorted, signalKeys: keys }
+  }, [activeSlots, trendHistory])
+
+  const latestT = chartData.length > 0
+    ? (chartData[chartData.length - 1].t as number)
+    : Date.now()
   const windowMs = WINDOW_SECONDS * 1000
-  const latestT = (chartData.length > 0 ? chartData[chartData.length - 1].t : null) ?? Date.now()
   const xDomain: [number, number] = [latestT - windowMs, latestT]
+
+  const formatXTick = (ts: number) => {
+    const diff = Math.round((ts - latestT) / 1000)
+    return `${diff}s`
+  }
 
   const formatTime = (ts: number) =>
     new Date(ts).toLocaleTimeString('en-US', {
@@ -55,13 +95,7 @@ export const RealtimeTrendChart: React.FC<RealtimeTrendChartProps> = ({
       hour12: false,
     })
 
-  // 相対ラベル: -60s, -45s, ..., 0s
-  const formatXTick = (ts: number) => {
-    const diff = Math.round((ts - latestT) / 1000)
-    return `${diff}s`
-  }
-
-  if (chartData.length === 0) {
+  if (activeSlots.length === 0) {
     return (
       <div
         style={{
@@ -69,17 +103,70 @@ export const RealtimeTrendChart: React.FC<RealtimeTrendChartProps> = ({
           borderRadius: 4,
           padding: '16px 8px 8px',
           height: 220,
+          minWidth: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          border: `1px solid ${theme.border}`,
         }}
       >
         <span style={{ color: theme.textMuted, fontSize: 12, fontFamily: theme.fontMono }}>
-          Waiting for data...
+          No active signals — press ○ in the Watch Window to add a signal to the trend.
         </span>
       </div>
     )
   }
+
+  // アクティブ信号のアラームしきい値参照線を構築
+  const referenceLines = activeSlots.flatMap((slot) => {
+    const th = thresholds.find(
+      (t) => t.plcId === slot.plcId && t.address === slot.address
+    )
+    if (!th) return []
+    const prefix = `${slot.deviceCode}${slot.address}`
+    const lines = []
+    if (th.HH !== undefined)
+      lines.push(
+        <ReferenceLine
+          key={`${slot.index as WatchSlotIndex}-HH`}
+          y={th.HH}
+          stroke={alarmLevelColor['HH']}
+          strokeDasharray="4 2"
+          label={{ value: `${prefix} HH`, fill: alarmLevelColor['HH'], fontSize: 10 }}
+        />
+      )
+    if (th.H !== undefined)
+      lines.push(
+        <ReferenceLine
+          key={`${slot.index as WatchSlotIndex}-H`}
+          y={th.H}
+          stroke={alarmLevelColor['H']}
+          strokeDasharray="4 2"
+          label={{ value: `${prefix} H`, fill: alarmLevelColor['H'], fontSize: 10 }}
+        />
+      )
+    if (th.L !== undefined)
+      lines.push(
+        <ReferenceLine
+          key={`${slot.index as WatchSlotIndex}-L`}
+          y={th.L}
+          stroke={alarmLevelColor['L']}
+          strokeDasharray="4 2"
+          label={{ value: `${prefix} L`, fill: alarmLevelColor['L'], fontSize: 10 }}
+        />
+      )
+    if (th.LL !== undefined)
+      lines.push(
+        <ReferenceLine
+          key={`${slot.index as WatchSlotIndex}-LL`}
+          y={th.LL}
+          stroke={alarmLevelColor['LL']}
+          strokeDasharray="4 2"
+          label={{ value: `${prefix} LL`, fill: alarmLevelColor['LL'], fontSize: 10 }}
+        />
+      )
+    return lines
+  })
 
   return (
     <div
@@ -88,6 +175,7 @@ export const RealtimeTrendChart: React.FC<RealtimeTrendChartProps> = ({
         borderRadius: 4,
         padding: '12px 8px 8px',
         border: `1px solid ${theme.border}`,
+        minWidth: 0, // Flexbox/Grid直下でResponsiveContainerの無限幅計算を防御
       }}
     >
       <ResponsiveContainer width="100%" height={200}>
@@ -105,7 +193,6 @@ export const RealtimeTrendChart: React.FC<RealtimeTrendChartProps> = ({
           <YAxis
             stroke={theme.border}
             tick={{ fontSize: 10, fontFamily: theme.fontMono, fill: theme.textMuted }}
-            tickFormatter={(v) => `${v}${unit}`}
           />
           <Tooltip
             contentStyle={{
@@ -117,49 +204,28 @@ export const RealtimeTrendChart: React.FC<RealtimeTrendChartProps> = ({
               color: theme.text,
             }}
             labelFormatter={(t) => formatTime(t as number)}
-            formatter={(v) => [`${v}${unit}`, 'Value']}
           />
-          {/* isAnimationActive=false 必須 — 500ms 更新でアニメーションが連続発火し CPU を消耗する */}
-          <Line
-            type="monotone"
-            dataKey="v"
-            stroke={theme.normal}
-            dot={false}
-            strokeWidth={1.5}
-            isAnimationActive={false}
+          <Legend
+            wrapperStyle={{ fontSize: 11, fontFamily: theme.fontMono, paddingTop: 4 }}
           />
-          {threshold?.HH !== undefined && (
-            <ReferenceLine
-              y={+(threshold.HH * scale).toFixed(2)}
-              stroke={alarmLevelColor['HH']}
-              strokeDasharray="4 2"
-              label={{ value: 'HH', fill: alarmLevelColor['HH'], fontSize: 10 }}
-            />
-          )}
-          {threshold?.H !== undefined && (
-            <ReferenceLine
-              y={+(threshold.H * scale).toFixed(2)}
-              stroke={alarmLevelColor['H']}
-              strokeDasharray="4 2"
-              label={{ value: 'H', fill: alarmLevelColor['H'], fontSize: 10 }}
-            />
-          )}
-          {threshold?.L !== undefined && (
-            <ReferenceLine
-              y={+(threshold.L * scale).toFixed(2)}
-              stroke={alarmLevelColor['L']}
-              strokeDasharray="4 2"
-              label={{ value: 'L', fill: alarmLevelColor['L'], fontSize: 10 }}
-            />
-          )}
-          {threshold?.LL !== undefined && (
-            <ReferenceLine
-              y={+(threshold.LL * scale).toFixed(2)}
-              stroke={alarmLevelColor['LL']}
-              strokeDasharray="4 2"
-              label={{ value: 'LL', fill: alarmLevelColor['LL'], fontSize: 10 }}
-            />
-          )}
+          {signalKeys.map((key, i) => {
+            const slot = activeSlots[i]
+            const label = slot.comment.trim() || key
+            return (
+              <Line
+                key={key}
+                type="monotone"
+                dataKey={key}
+                name={label}
+                stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                dot={false}
+                strokeWidth={1.5}
+                // isAnimationActive=false 必須 — 500ms 更新でアニメーションが連続発火し CPU を消耗する
+                isAnimationActive={false}
+              />
+            )
+          })}
+          {referenceLines}
         </ComposedChart>
       </ResponsiveContainer>
     </div>
