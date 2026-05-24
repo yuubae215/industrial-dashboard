@@ -139,8 +139,8 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div
+      className="viewport-lock"
       style={{
-        height: '100vh',
         background: theme.bg,
         color: theme.text,
         display: 'flex',
@@ -154,23 +154,36 @@ export const Dashboard: React.FC = () => {
         style={{
           flexShrink: 0,
           height: 48,
-          padding: '0 20px',
+          padding: isMobile ? '0 12px' : '0 20px',
           background: theme.bgHeader,
           borderBottom: `1px solid ${theme.border}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 16,
+          gap: isMobile ? 8 : 16,
+          minWidth: 0,
         }}
       >
-        {/* App title */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-          <span style={{ fontSize: theme.fs.md, fontWeight: 700, color: theme.text, letterSpacing: '0.06em' }}>
+        {/* App title — mobile: truncate; desktop: full title + subtitle */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, minWidth: 0, flexShrink: 1 }}>
+          <span
+            style={{
+              fontSize: isMobile ? theme.fs.sm : theme.fs.md,
+              fontWeight: 700,
+              color: theme.text,
+              letterSpacing: '0.06em',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             INDUSTRIAL DASHBOARD
           </span>
-          <span style={{ fontSize: theme.fs.xs, color: theme.textMuted, letterSpacing: '0.04em' }}>
-            MC Protocol 3E &mdash; {INTERVAL_MS}ms
-          </span>
+          {!isMobile && (
+            <span style={{ fontSize: theme.fs.xs, color: theme.textMuted, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              MC Protocol 3E &mdash; {INTERVAL_MS}ms
+            </span>
+          )}
         </div>
 
         {/* Active alarm chip */}
@@ -184,6 +197,7 @@ export const Dashboard: React.FC = () => {
               borderRadius: 3,
               background: `${theme.critical}20`,
               border: `1px solid ${theme.critical}`,
+              flexShrink: 0,
             }}
           >
             <span
@@ -195,46 +209,49 @@ export const Dashboard: React.FC = () => {
                 display: 'inline-block',
               }}
             />
-            <span style={{ fontSize: theme.fs.xs, fontWeight: 700, color: theme.critical, letterSpacing: '0.08em' }}>
-              {activeAlarmCount} ACTIVE ALARM{activeAlarmCount !== 1 ? 'S' : ''}
+            <span style={{ fontSize: theme.fs.xs, fontWeight: 700, color: theme.critical, letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+              {activeAlarmCount} ALARM{activeAlarmCount !== 1 ? 'S' : ''}
             </span>
           </div>
         )}
 
-        {/* Connection badges + clock */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {(
-              [
-                { id: MELSEC_ID, label: 'MELSEC', status: melsecStatus },
-                { id: KEYENCE_ID, label: 'KV', status: keyenceStatus },
-              ] as const
-            ).map(({ id, label, status }) => (
-              <span
-                key={id}
-                style={{
-                  fontSize: theme.fs.xs,
-                  fontFamily: theme.fontMono,
-                  fontWeight: 700,
-                  padding: '2px 7px',
-                  borderRadius: 3,
-                  border: `1px solid ${statusColor[status]}`,
-                  color: statusColor[status],
-                  letterSpacing: '0.05em',
-                }}
-              >
-                {label}: {statusLabel[status] ?? status.toUpperCase()}
-              </span>
-            ))}
-          </div>
+        {/* Connection badges + clock — mobile: clock only; desktop: badges + clock */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          {!isMobile && (
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(
+                [
+                  { id: MELSEC_ID, label: 'MELSEC', status: melsecStatus },
+                  { id: KEYENCE_ID, label: 'KV', status: keyenceStatus },
+                ] as const
+              ).map(({ id, label, status }) => (
+                <span
+                  key={id}
+                  style={{
+                    fontSize: theme.fs.xs,
+                    fontFamily: theme.fontMono,
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: 3,
+                    border: `1px solid ${statusColor[status]}`,
+                    color: statusColor[status],
+                    letterSpacing: '0.05em',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {label}: {statusLabel[status] ?? status.toUpperCase()}
+                </span>
+              ))}
+            </div>
+          )}
           <span
             style={{
-              fontSize: theme.fs.base,
+              fontSize: isMobile ? theme.fs.sm : theme.fs.base,
               fontFamily: theme.fontMono,
               color: theme.accent,
               fontWeight: 700,
               letterSpacing: '0.04em',
-              minWidth: 68,
+              minWidth: isMobile ? 56 : 68,
               textAlign: 'right',
             }}
           >
@@ -306,11 +323,12 @@ export const Dashboard: React.FC = () => {
           style={{
             height: 140,
             flexShrink: 0,
+            width: '100%',
             borderTop: `1px solid ${theme.border}`,
             overflowY: 'auto',
           }}
         >
-          <RightSidebar />
+          <RightSidebar style={{ width: '100%', borderLeft: 'none' }} />
         </div>
       )}
 

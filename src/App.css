@@ -10,6 +10,12 @@ html, body, #root {
   font-family: 'JetBrains Mono', 'Roboto Mono', Consolas, monospace;
 }
 
+/* 100dvh: ブラウザのツールバーを除いた実際の表示領域を使う (100vhはツールバー分オーバーしてフッターが画面外に出る) */
+.viewport-lock {
+  height: 100vh;
+  height: 100dvh;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
 }
