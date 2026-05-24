@@ -89,36 +89,40 @@ Everything downstream is derived each frame via pure functions. Nothing derived 
 
 ## 3. Watch Window Signal Activation Flow
 
-When an operator toggles a signal checkbox in `WatchWindow`:
+When an operator toggles a signal in `WatchWindow` (ADR-010 Phase 2):
 
 ```
 WatchWindow component
-         |  checkbox onChange
+         |  ○ button onClick
          v
-useDashboardStore.toggleSignalActive(address: string)
+useTrendConfigStore.setTrendConfig(plcId, address, { isActive: true/false })
          |
-         v  mutates:
-activeSignalAddresses: string[]   (add or remove the address)
+         v  persisted to localStorage ('trend-configs')
+useTrendConfigStore.configs[]
          |
          |  reactive selector
          v
 RealtimeTrendChart
+         |  filters slots where trendConfig.isActive === true
          |
-         +-- activeSignalAddresses.length === 0
+         +-- activeSlots.length === 0
          |          |
          |          v
          |    render empty placeholder
          |    (container maintains fixed height — no layout shift)
          |
-         +-- activeSignalAddresses.length > 0
+         +-- activeSlots.length > 0
                     |
                     v
-              map active addresses to <Line dataKey={address} />
+              map active slots to <Line dataKey={key} name={trendConfig.label || key} />
               (lines appear / disappear without container resize)
 ```
 
 Container height is fixed (explicit pixel value on parent div). The chart never resizes
 in response to the number of active signals — this enforces Axiom 3 (anti-jitter).
+
+**Signal label (Comment field):** stored in `useTrendConfigStore.configs[].label`. Keyed by
+`plcId + address`. Persists independently of which WatchSlot slot index the address occupies.
 
 ---
 
@@ -126,15 +130,15 @@ in response to the number of active signals — this enforces Axiom 3 (anti-jitt
 
 **前提条件:** アラームが評価されるのは、対象アドレスが `useDebugStore.slots` に登録済み
 （`slot.plcId === plcId && slot.address === <address>`）の場合のみ。
-WatchSlot に未登録のアドレスは閾値が `useAlarmStore.thresholds` に存在していても評価されない。
+WatchSlot に未登録のアドレスは閾値が `useSignalConfigStore.configs` に存在していても評価されない。
 
 ```
 Normal (no active alarms)
          |
-         |  WatchSlot にアドレスを登録 + 閾値を設定
+         |  WatchSlot にアドレスを登録 + useSignalConfigStore で閾値を設定
          |  → PLC 値が閾値を超えたとき
          v
-Active alarm  →  written to useAlarmStore
+Active alarm  →  written to useAlarmStore.entries[]
          |
          +--  WatchSlot からアドレスを削除
          |         |
@@ -155,48 +159,43 @@ Cleared
 ```
 
 Alarm flags are **never stored** in `usePlcStore`. They are computed by selectors each frame
-from `PlcRawValue` and threshold parameters in `useAlarmStore`. Only acknowledged/cleared state
-is persisted in `useAlarmStore`.
+from `PlcRawValue` and threshold parameters in `useSignalConfigStore`. Only acknowledged/cleared
+state is persisted in `useAlarmStore.entries[]` (no-persist store).
 
-Cross-store gating: `_processNewValues` calls `useDebugStore.getState()` at evaluation time
-to get the current watched address set (Zustand official cross-store pattern).
+Cross-store gating: `_processNewValues` calls `useDebugStore.getState()` and
+`useSignalConfigStore.getState()` at evaluation time (Zustand official cross-store pattern).
 
 ---
 
-## 5. Configuration Hydration Flow
+## 5. Configuration Hydration Flow (ADR-010 Phase 1 以降)
 
-2 つの閾値ソースがある。WatchSlot 設定（localStorage）が config ファイルより優先される。
+閾値の SSOT は `useSignalConfigStore`（persist あり）に一本化された。
 
 ```
 [Tauri Application Boot]
          |
          +──────────────────────────────────────────────+
          |                                              |
-         v  src-tauri/src/config/mod.rs :: load()       v  localStorage 'watch-slots'
+         v  src-tauri/src/config/mod.rs :: load()       v  localStorage 'signal-configs'
 [config::load()]                                 [Zustand persist rehydrate]
          |── devices.config.json exists?                |
          |        yes → parse JSON                      v
-         |        no  → default_config()         [useDebugStore.slots[] rehydrated]
-         v                                              |
-[Tauri IPC: "config_load"]                             |
-         v                                             |
-[useDeviceConfig() hook]                              |
-         v  configToThresholds(): AlarmThreshold[]    |
-[useAlarmStore.setThreshold()] × N                   |
-         |                                             |
-         v                                             v
-         +──────────────────────────────────────────────+
-         |
-         v  WatchWindow useEffect（マウント時 1 回）
-[slot.thresholdXX → buildThreshold() → asThresholdValue()]
-         |  スロット設定が config ファイル設定を上書きする
+         |        no  → no-op                  [useSignalConfigStore.configs[] rehydrated]
          v
-[useAlarmStore.thresholds[] — 最終閾値セット]
+[Tauri IPC: "config_load"]
+         v
+[useDeviceConfig() hook]
+         v  configToSignalConfigs(): SignalConfig[]
+[useSignalConfigStore.setSignalConfig()] × N
+         |
+         v
+[useSignalConfigStore.configs[] — 最終閾値セット（SSOT）]
          |
 [usePlcStore.subscribe()] cross-store subscription
          v
 [useAlarmStore._processNewValues(plcId, addressMap)]
-         |  WatchSlot 登録済みアドレスのみ評価
+         |  useSignalConfigStore.getState().configs を参照
+         |  useDebugStore.getState().slots で WatchSlot 登録済みアドレスのみ評価
          v
 [useAlarmStore.entries[] — active AlarmEntry records]
          |
@@ -206,9 +205,10 @@ to get the current watched address set (Zustand official cross-store pattern).
 
 **Invariants:**
 - `useDeviceConfig()` は `invoke("config_load")` を呼ぶ唯一の場所
-- WatchWindow の `useEffect` はマウント時 1 回、slot thresholds → alarmStore を同期する
-- どちらのパスも `asThresholdValue()` コンストラクタ経由 — 生キャストなし
+- WatchWindow の閾値入力は `useSignalConfigStore.setSignalConfig()` に直接書き込む
+- `asThresholdValue()` コンストラクタ経由のみ — 生キャストなし
 - WatchSlot に未登録のアドレスは `_processNewValues` でゲーティングされ評価されない
+- `useAlarmStore` はイベントログ（`entries[]`）専用 — 閾値データは持たない
 
 ---
 

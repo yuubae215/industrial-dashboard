@@ -9,12 +9,6 @@ const makeEmptySlot = (index: number): WatchSlot => ({
   address: null,
   deviceCode: 'D',
   plcId: null,
-  comment: '',
-  isActive: false,
-  thresholdHH: null,
-  thresholdH:  null,
-  thresholdL:  null,
-  thresholdLL: null,
 })
 
 interface DebugState {
@@ -23,10 +17,8 @@ interface DebugState {
   slots: WatchSlot[]
 
   toggleMaintenanceMode: () => void
-  /** スロット内容を部分更新する。インデックス自体は変更不可。address が null になる場合は isActive も false にリセットする。 */
+  /** スロット内容を部分更新する。インデックス自体は変更不可。 */
   updateSlot: (index: WatchSlotIndex, patch: Partial<Omit<WatchSlot, 'index'>>) => void
-  /** トレンドチャートへの表示 ON/OFF を切り替える。address と plcId が未設定のスロットは何もしない。 */
-  toggleSlotActive: (index: WatchSlotIndex) => void
 }
 
 export const useDebugStore = create<DebugState>()(
@@ -40,25 +32,9 @@ export const useDebugStore = create<DebugState>()(
 
       updateSlot: (index, patch) =>
         set((state) => ({
-          slots: state.slots.map((slot) => {
-            if (slot.index !== index) return slot
-            // アドレスがクリアされたらトレンド表示・閾値も自動解除（孤立アクティブ防止）
-            const clearOnAddressNull =
-              'address' in patch && patch.address === null
-                ? { isActive: false, thresholdHH: null, thresholdH: null, thresholdL: null, thresholdLL: null }
-                : {}
-            return { ...slot, ...patch, ...clearOnAddressNull }
-          }),
-        })),
-
-      toggleSlotActive: (index) =>
-        set((state) => ({
-          slots: state.slots.map((slot) => {
-            if (slot.index !== index) return slot
-            // address と plcId が確定しているスロットのみ有効化できる
-            if (slot.address === null || slot.plcId === null) return slot
-            return { ...slot, isActive: !slot.isActive }
-          }),
+          slots: state.slots.map((slot) =>
+            slot.index !== index ? slot : { ...slot, ...patch },
+          ),
         })),
     }),
     { name: 'watch-slots' }

@@ -53,7 +53,9 @@ Factory operators navigate the dashboard while wearing gloves, without looking a
 |       |  read (selector hooks)                        |
 |       v                                               |
 |  Zustand Store                                        |
-|  (usePlcStore / useAlarmStore / usePlcConfigStore)    |
+|  (usePlcStore / useAlarmStore / usePlcConfigStore /   |
+|   useSignalConfigStore / useTrendConfigStore /        |
+|   useDebugStore)                                      |
 |       ^  updateRawValues / setConnectionStatus        |
 |       |                                               |
 |  Custom Hooks                                         |
@@ -97,24 +99,35 @@ They live in a JSON file under the user's home directory, managed exclusively by
      v  src-tauri/src/config/mod.rs
 [config::load()]
      |── file exists? → parse JSON → return DeviceConfig
-     └── missing?     → write default → return DeviceConfig
+     └── missing?     → no-op (ユーザーが手動で設定)
      |
      v  Tauri IPC: invoke("config_load")
 [useDeviceConfig() hook]
      |
-     v  useAlarmStore.setThreshold() (per signal)
-[Zustand alarm store — thresholds hydrated]
+     v  useSignalConfigStore.setSignalConfig() (per signal)  ← ADR-010 Phase 1
+[useSignalConfigStore — SignalConfig[] hydrated (SSOT for thresholds)]
      |
      v  usePlcStore.subscribe() cross-store
-[Alert evaluation against loaded thresholds]
+[useAlarmStore._processNewValues() — useSignalConfigStore.getState() を参照]
      |
      v  DiagnosticPane (bottom Output window)
 [Active alarms displayed]
 ```
 
+**Zustand Store Responsibility Boundaries (ADR-010):**
+
+| Store | Persistence | Responsibility |
+|---|---|---|
+| `usePlcStore` | no-persist | PlcRawValue[], timestamps, ConnectionStatus (SSOT) |
+| `useAlarmStore` | no-persist | AlarmEntry[] event log only |
+| `useSignalConfigStore` | persist ('signal-configs') | Threshold SSOT — HH/H/L/LL per signal |
+| `useTrendConfigStore` | persist ('trend-configs') | Trend display config — isActive, label per signal |
+| `useDebugStore` | persist ('watch-slots') | WatchSlot layout — slot index ↔ address mapping only |
+| `usePlcConfigStore` | persist | PLC host/port/timeout settings |
+
 **Absolute prohibition:** Alarm thresholds must never be hardcoded in `Dashboard.tsx` or
 any other React component. All threshold values must originate from `devices.config.json`
-loaded via `config_load`. Violation is a 🟥 Red Card.
+loaded via `config_load` or user input via `useSignalConfigStore`. Violation is a 🟥 Red Card.
 
 ---
 
