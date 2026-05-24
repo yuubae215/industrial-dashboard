@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { usePlcPolling } from '../hooks/usePlcPolling'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { useAlarmMonitor } from '../store/useAlarmStore'
 import { useAlarmStore } from '../store/useAlarmStore'
 import { usePlcConfigStore, MELSEC_PLC_ID, KEYENCE_PLC_ID } from '../store/usePlcConfigStore'
@@ -8,7 +9,7 @@ import { RealtimeTrendChart } from './RealtimeTrendChart'
 import { WatchWindow } from './WatchWindow'
 import { LeftSidebar } from './LeftSidebar'
 import type { PlcHierarchyNode } from './LeftSidebar'
-import { Ribbon } from './Ribbon'
+import { FixedControlSlots } from './FixedControlSlots'
 import { RightSidebar } from './RightSidebar'
 import { StatusBar } from './StatusBar'
 import { ConnectionSettings } from './ConnectionSettings'
@@ -100,6 +101,7 @@ const statusColor: Record<string, string> = {
 export const Dashboard: React.FC = () => {
   const [isTrendVisible, setIsTrendVisible] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   const melsecConfig = usePlcConfigStore((s) => s.configs[MELSEC_ID])
   const keyenceConfig = usePlcConfigStore((s) => s.configs[KEYENCE_ID])
@@ -241,24 +243,30 @@ export const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      {/* ── Ribbon toolbar ────────────────────────────────────── */}
-      <Ribbon
-        isTrendVisible={isTrendVisible}
-        onTrendToggle={() => setIsTrendVisible((v) => !v)}
-        onSettingsOpen={() => setIsSettingsOpen(true)}
-      />
-
       {/* ── Body ──────────────────────────────────────────────── */}
+      {/* ADR-008: desktop = 3-column row; mobile = single column */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Navigation pane: PLC hierarchy tree */}
-        <LeftSidebar nodes={PLC_NODES} />
+        {/* Desktop only: left sidebar (PLC tree + fixed control slots at bottom) */}
+        {!isMobile && (
+          <LeftSidebar
+            nodes={PLC_NODES}
+            footer={
+              <FixedControlSlots
+                layout="vertical"
+                isTrendVisible={isTrendVisible}
+                onTrendToggle={() => setIsTrendVisible((v) => !v)}
+                onSettingsOpen={() => setIsSettingsOpen(true)}
+              />
+            }
+          />
+        )}
 
         {/* Main content area */}
         <main
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '16px 20px',
+            padding: isMobile ? '12px 16px' : '16px 20px',
             display: 'flex',
             flexDirection: 'column',
             gap: 16,
@@ -288,12 +296,36 @@ export const Dashboard: React.FC = () => {
           <WatchWindow plcConfig={melsecConfig} defaultPlcId={MELSEC_ID} />
         </main>
 
-        {/* Alarm panel */}
-        <RightSidebar />
+        {/* Desktop only: right sidebar (alarm panel, full height) */}
+        {!isMobile && <RightSidebar />}
       </div>
 
-      {/* ── Status bar ────────────────────────────────────────── */}
-      <StatusBar tagCount={READ_COUNT * 2} />
+      {/* Mobile only: compact alarm panel above footer slots */}
+      {isMobile && (
+        <div
+          style={{
+            height: 140,
+            flexShrink: 0,
+            borderTop: `1px solid ${theme.border}`,
+            overflowY: 'auto',
+          }}
+        >
+          <RightSidebar />
+        </div>
+      )}
+
+      {/* ── Footer / Status bar ───────────────────────────────── */}
+      {/* ADR-008: mobile = horizontal 4-slot footer; desktop = slim status bar */}
+      {isMobile ? (
+        <FixedControlSlots
+          layout="horizontal"
+          isTrendVisible={isTrendVisible}
+          onTrendToggle={() => setIsTrendVisible((v) => !v)}
+          onSettingsOpen={() => setIsSettingsOpen(true)}
+        />
+      ) : (
+        <StatusBar tagCount={READ_COUNT * 2} />
+      )}
 
       {isSettingsOpen && (
         <ConnectionSettings
