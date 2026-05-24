@@ -107,6 +107,33 @@ export type ConnectionStatus =
   | 'error'
 
 // ---------------------------------------------------------------------------
+// デバイス構成ファイル（~/.plc-telemetry/devices.config.json）
+// ---------------------------------------------------------------------------
+
+/** アラート条件定義。デバイスのメタデータとして管理し、信号本体に埋め込まない。 */
+export interface AlertDef {
+  kind: 'HH' | 'H' | 'L' | 'LL'
+  threshold: number
+  message: string
+}
+
+/** 信号定義。デバイスアドレス・名称・単位・アラート条件をまとめた設定単位。 */
+export interface SignalDef {
+  plcId: string
+  address: number
+  name: string
+  unit: string
+  dataType: string
+  alerts: AlertDef[]
+}
+
+/** devices.config.json のルート構造。Tauri config_load コマンドの戻り値。 */
+export interface DeviceConfig {
+  version: string
+  signals: SignalDef[]
+}
+
+// ---------------------------------------------------------------------------
 // コードガバナンス：イエロー/レッドカード（ADR-006）
 // ---------------------------------------------------------------------------
 

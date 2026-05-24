@@ -1,3 +1,4 @@
+mod config;
 mod mtls;
 mod plc;
 
@@ -83,6 +84,20 @@ async fn plc_write_keyence(
         .map_err(|e| e.to_string())
 }
 
+// ── デバイス構成コマンド ──────────────────────────────────────────────────
+
+/// ~/.plc-telemetry/devices.config.json を読み込む（存在しない場合はデフォルトを生成）
+#[tauri::command]
+async fn config_load() -> Result<config::DeviceConfig, String> {
+    config::load()
+}
+
+/// ~/.plc-telemetry/devices.config.json に構成を保存する
+#[tauri::command]
+async fn config_save(payload: config::DeviceConfig) -> Result<(), String> {
+    config::save(&payload)
+}
+
 // ── mTLS コマンド ─────────────────────────────────────────────────────────
 
 /// mTLS 認証で GET リクエストを送信する
@@ -138,6 +153,8 @@ pub fn run() {
             plc_write_mitsubishi,
             mtls_get,
             mtls_post,
+            config_load,
+            config_save,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

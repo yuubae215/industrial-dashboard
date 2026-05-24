@@ -79,7 +79,46 @@ Factory operators navigate the dashboard while wearing gloves, without looking a
 
 ---
 
-## 3. Four-Layer Architecture
+## 3. Configuration Storage Topology
+
+Alert thresholds and signal definitions are never hardcoded in frontend components.
+They live in a JSON file under the user's home directory, managed exclusively by the Rust backend.
+
+```
+~/.plc-telemetry/
+└── devices.config.json       ← Signal definitions + alert thresholds (SSOT for config)
+```
+
+**Lifecycle:**
+
+```
+[Tauri Boot]
+     |
+     v  src-tauri/src/config/mod.rs
+[config::load()]
+     |── file exists? → parse JSON → return DeviceConfig
+     └── missing?     → write default → return DeviceConfig
+     |
+     v  Tauri IPC: invoke("config_load")
+[useDeviceConfig() hook]
+     |
+     v  useAlarmStore.setThreshold() (per signal)
+[Zustand alarm store — thresholds hydrated]
+     |
+     v  usePlcStore.subscribe() cross-store
+[Alert evaluation against loaded thresholds]
+     |
+     v  DiagnosticPane (bottom Output window)
+[Active alarms displayed]
+```
+
+**Absolute prohibition:** Alarm thresholds must never be hardcoded in `Dashboard.tsx` or
+any other React component. All threshold values must originate from `devices.config.json`
+loaded via `config_load`. Violation is a 🟥 Red Card.
+
+---
+
+## 4. Four-Layer Architecture
 
 ### Layer 1: UI Presentation Layer
 
@@ -163,19 +202,22 @@ prohibited.** The same component tree adapts via `isMobile` style tokens.
 | MENU BAR (28px) [Project][View][Online][Tools]  MELSEC•  KV•         |
 +-----------------------------------------------------------------------+
 | HEADER (48px)  INDUSTRIAL DASHBOARD — 500ms          HH:MM:SS        |
-+------------+----------------------------------+-----------+
-| LEFT       |         MAIN CONTENT             | RIGHT     |
-| SIDEBAR    |                                  | SIDEBAR   |
-| (200px)    |  RealtimeTrendChart /            | (300px)   |
-|            |  WatchWindow                     |           |
-| PLC Tree   |                                  | Alarm     |
-| ---------- |                                  | Panel     |
-| Fixed      |                                  |           |
-| Slots 0-3  |                                  |           |
-| (vertical) |                                  |           |
-+------------+----------------------------------+-----------+
-| STATUS BAR (28px): mode | polling | tag count             |
-+-------------------------------------------------------+
++------------+--------------------------------------------------+
+| LEFT       |         MAIN CONTENT                             |
+| SIDEBAR    |                                                  |
+| (200px)    |  RealtimeTrendChart / WatchWindow                |
+|            |                                                  |
+| PLC Tree   |                                                  |
+| ---------- |                                                  |
+| Fixed      |                                                  |
+| Slots 0-3  |                                                  |
+| (vertical) |                                                  |
++------------+--------------------------------------------------+
+| DIAGNOSTIC PANE (200px) [ALARMS] [OUTPUT]  — IDE Output window |
+| HH 14:22:01  melsec-line-a D1000 = 2510 — High-High  [ACK]   |
++-----------------------------------------------------------------------+
+| STATUS BAR (28px): mode | polling | tag count                         |
++-----------------------------------------------------------------------+
 ```
 
 ### 4b. Mobile (< 768px) — Glove-Friendly Industrial Tablet
@@ -187,7 +229,7 @@ prohibited.** The same component tree adapts via `isMobile` style tokens.
 | MAIN CONTENT AREA (flex: 1, overflowY: auto, internal scroll)        |
 |   WatchWindow / RealtimeTrendChart                                    |
 +-----------------------------------------------------------------------+
-| ALARM PANEL (140px, compact, overflowY: auto)                        |
+| DIAGNOSTIC PANE (160px) [ALARMS] [OUTPUT]  — tabbed bottom pane     |
 +-----------------------------------------------------------------------+
 | FIXED FOOTER SLOTS (64px, 4-col grid — each ≥ 44px touch target)    |
 | [<- Back (disabled)] [Settings] [Trend] [Maintenance]                |

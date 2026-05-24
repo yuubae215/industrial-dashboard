@@ -151,7 +151,49 @@ is persisted in `useAlarmStore`.
 
 ---
 
-## 5. Error Recovery Transitions
+## 5. Configuration Hydration Flow
+
+How `devices.config.json` initializes alarm thresholds in the Zustand store at boot.
+
+```
+[Tauri Application Boot]
+         |
+         v  src-tauri/src/config/mod.rs :: load()
+[config::load()]
+         |── ~/.plc-telemetry/devices.config.json exists?
+         |        yes → parse JSON → DeviceConfig
+         |        no  → write default_config() → DeviceConfig
+         v
+[Tauri IPC: "config_load" command]
+         |  returns DeviceConfig (camelCase JSON)
+         v
+[useDeviceConfig() hook — runs once on Dashboard mount]
+         |  invoke("config_load") → .then(config => ...)
+         |                          .catch(() => FALLBACK_THRESHOLDS)
+         v  configToThresholds(config): AlarmThreshold[]
+[useAlarmStore.setThreshold(threshold)] × N signals
+         |
+         v  Zustand store: thresholds[] updated
+[usePlcStore.subscribe()] cross-store subscription
+         |  fires on next PLC value update
+         v
+[useAlarmStore._processNewValues(plcId, addressMap)]
+         |  evaluates each threshold against current PlcRawValue
+         v
+[useAlarmStore.entries[] — active AlarmEntry records]
+         |
+         v  reactive selector
+[DiagnosticPane ALARMS tab — rows rendered]
+```
+
+**Invariants:**
+- `useDeviceConfig()` is the only place that calls `invoke("config_load")`
+- It is called once on Dashboard mount via `useEffect`
+- The fallback path (catch) uses the same `asThresholdValue()` constructor — no raw casts
+
+---
+
+## 6. Error Recovery Transitions
 
 ```
 invoke() returns PlcError::Timeout or PlcError::Connection
@@ -179,7 +221,7 @@ renders the last known data points with a visual error indicator overlay — it 
 
 ---
 
-## 6. Polling Interval State (usePlcPolling)
+## 7. Polling Interval State (usePlcPolling)
 
 ```
 Component mounts
@@ -199,7 +241,7 @@ Polling interval (`500`) comes from `PlcConfig` (Rust-side SSOT) — it is never
 
 ---
 
-## 7. Branded Type Boundary Map
+## 8. Branded Type Boundary Map
 
 ```
 System boundary               Constructor              Type
@@ -214,7 +256,7 @@ Crossing these boundaries without the constructor function is a 🟥 Red Card.
 
 ---
 
-## 8. Responsive Viewport Transformation (ADR-009)
+## 9. Responsive Viewport Transformation (ADR-009)
 
 How `useIsMobile` feeds layout token selection across the component tree.
 
@@ -235,7 +277,8 @@ isMobile: boolean  ──── stored as local hook state (not in Zustand — i
     Dashboard renders:              Dashboard renders:                 |
     • <MenuBar /> (28px)            • no MenuBar                       |
     • <LeftSidebar />               • no LeftSidebar                   |
-    • <RightSidebar /> (300px)      • <RightSidebar compact />         |
+    • <DiagnosticPane              • <DiagnosticPane                   |
+        height={200} />               height={160} />                  |
     • <StatusBar /> (28px)          • <FixedControlSlots               |
     • <FixedControlSlots              layout="horizontal" /> (64px)    |
         layout="vertical" />                                           |

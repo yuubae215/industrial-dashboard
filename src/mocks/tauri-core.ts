@@ -27,5 +27,28 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
   if (cmd === 'plc_write_mitsubishi' || cmd === 'plc_write_keyence') {
     return undefined as T
   }
+  if (cmd === 'config_load') {
+    return {
+      version: '1.0.0',
+      signals: [
+        {
+          plcId: 'melsec-line-a',
+          address: 1000,
+          name: 'Mitsubishi Line A Furnace Temp',
+          unit: 'degC',
+          dataType: 'INT16',
+          alerts: [
+            { kind: 'HH', threshold: 2500, message: 'CRITICAL: Furnace temperature extremely high' },
+            { kind: 'H', threshold: 2000, message: 'WARNING: Furnace temperature high' },
+            { kind: 'L', threshold: 500, message: 'WARNING: Furnace temperature low' },
+            { kind: 'LL', threshold: 200, message: 'CRITICAL: Furnace temperature extremely low' },
+          ],
+        },
+      ],
+    } as unknown as T
+  }
+  if (cmd === 'config_save') {
+    return undefined as T
+  }
   throw new Error(`[demo] unsupported command: ${cmd}`)
 }
