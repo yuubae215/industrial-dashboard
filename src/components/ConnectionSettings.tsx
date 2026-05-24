@@ -10,6 +10,7 @@ export interface PlcEntry {
 
 interface ConnectionSettingsProps {
   plcs: PlcEntry[]
+  isMobile?: boolean
   onClose: () => void
 }
 
@@ -19,7 +20,10 @@ interface FormValues {
   timeoutMs: string
 }
 
-export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, onClose }) => {
+/** Minimum touch target height for glove operation (mobile only). */
+const GLOVE_MIN_H = 44
+
+export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, isMobile = false, onClose }) => {
   const configs = usePlcConfigStore((s) => s.configs)
   const updateConfig = usePlcConfigStore((s) => s.updateConfig)
 
@@ -80,26 +84,35 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
     if (!hasError) onClose()
   }
 
+  // Desktop: compact IDE-density horizontal grid (label above, fields side-by-side)
+  // Mobile: vertical stack, each input locked to GLOVE_MIN_H for glove operability
   const inputStyle: React.CSSProperties = {
     background: theme.bg,
     color: theme.text,
     border: `1px solid ${theme.border}`,
     borderRadius: 4,
-    padding: '8px 10px',
-    fontSize: theme.fs.base,
+    padding: isMobile ? `0 12px` : '8px 10px',
+    fontSize: isMobile ? theme.fs.md : theme.fs.base,
     fontFamily: theme.fontMono,
     width: '100%',
     boxSizing: 'border-box',
     outline: 'none',
+    ...(isMobile ? { minHeight: GLOVE_MIN_H, height: GLOVE_MIN_H } : {}),
   }
 
   const labelStyle: React.CSSProperties = {
     fontSize: theme.fs.sm,
     color: theme.textMuted,
-    marginBottom: 4,
+    marginBottom: isMobile ? 6 : 4,
     display: 'block',
     letterSpacing: '0.04em',
   }
+
+  // Desktop: 3-column grid (Host wide | Port 110px | Timeout 130px)
+  // Mobile: flex-column — each field full-width, stacked vertically
+  const fieldRowStyle: React.CSSProperties = isMobile
+    ? { display: 'flex', flexDirection: 'column', gap: 12 }
+    : { display: 'grid', gridTemplateColumns: '1fr 110px 130px', gap: 12 }
 
   return (
     <div
@@ -109,7 +122,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
         inset: 0,
         background: 'rgba(0, 0, 0, 0.7)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: isMobile ? 'flex-end' : 'center',
         justifyContent: 'center',
         zIndex: 200,
       }}
@@ -119,22 +132,43 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
         style={{
           background: theme.bgCard,
           border: `1px solid ${theme.border}`,
-          borderRadius: 8,
-          padding: 24,
-          width: 520,
-          maxWidth: 'calc(100vw - 32px)',
+          borderRadius: isMobile ? '12px 12px 0 0' : 8,
+          padding: isMobile ? 20 : 24,
+          width: isMobile ? '100%' : 520,
+          maxWidth: isMobile ? '100%' : 'calc(100vw - 32px)',
+          maxHeight: isMobile ? '90vh' : undefined,
+          overflowY: isMobile ? 'auto' : undefined,
         }}
       >
-        <h2 style={{ margin: '0 0 20px', fontSize: theme.fs.md, color: theme.text, fontWeight: 700, letterSpacing: '0.04em' }}>
+        {/* Modal title — IDE style on desktop, larger touch target on mobile */}
+        <h2
+          style={{
+            margin: '0 0 20px',
+            fontSize: isMobile ? theme.fs.lg : theme.fs.md,
+            color: theme.text,
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+          }}
+        >
           Connection Settings
         </h2>
 
         {plcs.map(({ plcId, label }) => (
-          <div key={plcId} style={{ marginBottom: 20 }}>
-            <h3 style={{ margin: '0 0 10px', fontSize: theme.fs.base, color: theme.accent, fontWeight: 600, letterSpacing: '0.03em' }}>
+          <div key={plcId} style={{ marginBottom: isMobile ? 24 : 20 }}>
+            <h3
+              style={{
+                margin: '0 0 10px',
+                fontSize: isMobile ? theme.fs.base : theme.fs.base,
+                color: theme.accent,
+                fontWeight: 600,
+                letterSpacing: '0.03em',
+              }}
+            >
               {label}
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 130px', gap: 12 }}>
+
+            {/* Form layout: 3-col grid (desktop) or vertical stack (mobile) */}
+            <div style={fieldRowStyle}>
               <div>
                 <label style={labelStyle}>Host / IP Address</label>
                 <input
@@ -167,6 +201,7 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
                 />
               </div>
             </div>
+
             {errors[plcId] && (
               <p style={{ margin: '6px 0 0', fontSize: 12, color: theme.critical }}>
                 {errors[plcId]}
@@ -178,7 +213,8 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
         <div
           style={{
             display: 'flex',
-            justifyContent: 'flex-end',
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: isMobile ? 'stretch' : 'flex-end',
             gap: 12,
             marginTop: 16,
             paddingTop: 16,
@@ -189,15 +225,16 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
             onClick={onClose}
             style={{
               padding: '0 20px',
-              minHeight: theme.touchMin,
+              minHeight: isMobile ? GLOVE_MIN_H : theme.touchMin,
               background: 'transparent',
               border: `1px solid ${theme.border}`,
               borderRadius: 4,
               color: theme.textMuted,
               cursor: 'pointer',
               fontFamily: theme.fontMono,
-              fontSize: theme.fs.base,
+              fontSize: isMobile ? theme.fs.md : theme.fs.base,
               letterSpacing: '0.03em',
+              order: isMobile ? 2 : 1,
             }}
           >
             Cancel
@@ -206,19 +243,20 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, on
             onClick={handleSave}
             style={{
               padding: '0 24px',
-              minHeight: theme.touchMin,
+              minHeight: isMobile ? GLOVE_MIN_H : theme.touchMin,
               background: theme.accent,
               border: 'none',
               borderRadius: 4,
               color: '#0F1114',
               cursor: 'pointer',
               fontFamily: theme.fontMono,
-              fontSize: theme.fs.base,
+              fontSize: isMobile ? theme.fs.md : theme.fs.base,
               fontWeight: 700,
               letterSpacing: '0.03em',
+              order: isMobile ? 1 : 2,
             }}
           >
-            Save & Apply
+            Save &amp; Apply
           </button>
         </div>
       </div>

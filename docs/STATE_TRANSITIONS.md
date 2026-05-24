@@ -214,6 +214,59 @@ Crossing these boundaries without the constructor function is a 🟥 Red Card.
 
 ---
 
+## 8. Responsive Viewport Transformation (ADR-009)
+
+How `useIsMobile` feeds layout token selection across the component tree.
+
+```
+Window resize event
+         |
+         v
+useIsMobile hook (768px breakpoint)
+         |
+         v
+isMobile: boolean  ──── stored as local hook state (not in Zustand — it is
+         |              a presentation-layer concern, not domain state)
+         |
+         +────────────────────────────────+────────────────────────────+
+         |                                |                            |
+         v (isMobile = false)             v (isMobile = true)         v
+                                                                       |
+    Dashboard renders:              Dashboard renders:                 |
+    • <MenuBar /> (28px)            • no MenuBar                       |
+    • <LeftSidebar />               • no LeftSidebar                   |
+    • <RightSidebar /> (300px)      • <RightSidebar compact />         |
+    • <StatusBar /> (28px)          • <FixedControlSlots               |
+    • <FixedControlSlots              layout="horizontal" /> (64px)    |
+        layout="vertical" />                                           |
+                                                                       |
+         +─────────────────────────────────────────────────────────────+
+         |
+         v
+ConnectionSettings receives isMobile prop:
+
+  isMobile=false:                    isMobile=true:
+  • dialog: center-anchor            • dialog: bottom-sheet (borderRadius top)
+  • form: 3-col horizontal grid      • form: flex-column vertical stack
+  • inputs: padding 8px 10px         • inputs: minHeight 44px (glove floor)
+  • buttons: row (Cancel | Save)     • buttons: column (Save first, Cancel last)
+  • width: 520px                     • width: 100%
+```
+
+### Layout token switching invariant
+
+No DOM element is added or removed between viewports — the same component instance
+changes its `style` properties. Conditional rendering (`{isMobile && <X />}`) is
+permitted **only** for components that have no representation in the other viewport
+(e.g., `<MenuBar />` has no mobile variant — it is hidden by conditional mount, not
+by `display: none`).
+
+The distinction: removing a structural layout element entirely (MenuBar) is acceptable.
+Hiding a form, a dialog, or a control surface via `display: none` while keeping its
+DOM twin alive is the prohibited pattern.
+
+---
+
 ## Maintenance Rule
 
 If a code change modifies:

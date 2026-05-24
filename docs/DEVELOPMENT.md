@@ -56,7 +56,71 @@ before writing any frontend code that calls it.
 
 ---
 
-## 4. Recharts Safety Guardrails
+## 4. IDE Muscle Memory — Desktop Layout Implementation
+
+When developing or altering desktop layouts, emulate the UX flow of GX Works and similar
+engineering IDE tools. Operators navigate from muscle memory; unexpected visual changes
+break the physical habit loop.
+
+### MenuBar (GX Works style)
+
+- Fixed height **28px**, `background: '#07080E'` (darker than `bgHeader`)
+- Menu items: transparent background, `fontSize: xs`, zero border-radius, no padding-y
+- Hover state via `onMouseEnter`/`onMouseLeave` — not CSS `:hover` (inline-style constraint)
+- PLC status in MenuBar: compact dot (5×5px) + label — full badges belong in header only
+- Never add icons, gradients, or rounded corners to the MenuBar
+
+### Connection Form (desktop)
+
+- `gridTemplateColumns: '1fr 110px 130px'` — Host wide, Port narrow, Timeout narrow
+- Inputs: `padding: 8px 10px`, `fontSize: 13px`, `fontFamily: JetBrains Mono`
+- Tab order must follow left-to-right across the grid row, then next PLC block
+- Dialog anchors **center-center** (no sheet-from-bottom on desktop)
+
+### Keyboard Navigation Invariant
+
+Forms inside setup dialogs must maintain a linear `tabIndex` sequence so field-to-field
+navigation works without a mouse. Logical order: Host → Port → Timeout → (next PLC block) → Save.
+
+---
+
+## 5. Prohibited Mobile Modification Anti-Patterns (🟥 Red Cards)
+
+### Anti-pattern 1: Visibility toggling via CSS or conditional mount
+
+```tsx
+// 🟥 PROHIBITED — creates DOM duplication or hides elements
+{isMobile ? <MobileConnectionSettings /> : <DesktopConnectionSettings />}
+<div style={{ display: isMobile ? 'none' : 'block' }}>...</div>
+
+// ✅ REQUIRED — same component, style tokens morph the layout
+<ConnectionSettings isMobile={isMobile} ... />
+```
+
+### Anti-pattern 2: Squishing form inputs below 44px on mobile
+
+```tsx
+// 🟥 PROHIBITED — touch targets below 44px are unreachable through work gloves
+<input style={{ height: 32 }} />
+
+// ✅ REQUIRED — 44px floor on every interactive element in mobile mode
+<input style={{ minHeight: 44, height: 44 }} />
+```
+
+### Anti-pattern 3: Desktop-only slot fixed widths applied to mobile
+
+`ConnectionSettings` width on mobile must be `100%` with `borderRadius: '12px 12px 0 0'`
+(bottom-sheet pattern). A fixed `width: 520px` dialog on a narrow viewport is a 🟥 Red Card.
+
+### Anti-pattern 4: Primary action last (natural DOM order) on mobile
+
+On mobile, the primary action button (Save & Apply) is placed **above** Cancel using CSS `order`.
+This prevents thumb stretch to reach the bottom of a tall form. Never force the user to
+scroll past all fields to find the primary action.
+
+---
+
+## 6. Recharts Safety Guardrails
 
 Violations of these rules cause the application to freeze the UI thread via an infinite
 resize recalculation loop (browser compositor deadlock). These rules are mandatory.
@@ -102,7 +166,7 @@ the resulting chunk sizes.
 
 ---
 
-## 5. Branded Type Guardrails
+## 7. Branded Type Guardrails
 
 TypeScript's structural type system does not prevent mixing `PlcRawValue` and `EngineeringValue`
 without branded types. The compile-time safety comes entirely from the nominal tags in
@@ -116,7 +180,7 @@ Rules:
 
 ---
 
-## 6. Zustand `persist` Rehydration Boundary
+## 8. Zustand `persist` Rehydration Boundary
 
 `usePlcConfigStore` uses Zustand `persist` to survive app restarts. Rehydration bypasses
 branded type constructors (see YC-002 in `docs/governance/yellow-cards.md`).
@@ -127,7 +191,7 @@ values further into the domain without reconstruction.
 
 ---
 
-## 7. Component Scope Checklist
+## 9. Component Scope Checklist
 
 Before writing a new component, verify:
 
@@ -141,7 +205,7 @@ Before writing a new component, verify:
 
 ---
 
-## 8. Code Governance: Yellow/Red Card Workflow
+## 10. Code Governance: Yellow/Red Card Workflow
 
 When an at-risk implementation pattern is discovered:
 
@@ -166,3 +230,4 @@ Full procedure: [ADR-006](./adr/adr-006-yellow-red-card-governance.md)
 | [ADR-004](./adr/adr-004-ux-fixed-slot-policy.md) | Fixed-slot layout specification |
 | [ADR-005](./adr/adr-005-ssot-state-management.md) | SSOT state management strategy |
 | [ADR-007](./adr/adr-007-branded-types.md) | Branded type strategy |
+| [ADR-009](./adr/adr-009-form-layout-adaptation.md) | Form Layout Adaptation |

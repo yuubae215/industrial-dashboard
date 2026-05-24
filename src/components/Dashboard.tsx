@@ -4,7 +4,6 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { useAlarmMonitor } from '../store/useAlarmStore'
 import { useAlarmStore } from '../store/useAlarmStore'
 import { usePlcConfigStore, MELSEC_PLC_ID, KEYENCE_PLC_ID } from '../store/usePlcConfigStore'
-import { usePlcStore } from '../store/usePlcStore'
 import { RealtimeTrendChart } from './RealtimeTrendChart'
 import { WatchWindow } from './WatchWindow'
 import { LeftSidebar } from './LeftSidebar'
@@ -13,6 +12,7 @@ import { FixedControlSlots } from './FixedControlSlots'
 import { RightSidebar } from './RightSidebar'
 import { StatusBar } from './StatusBar'
 import { ConnectionSettings } from './ConnectionSettings'
+import { MenuBar } from './MenuBar'
 import { theme } from '../styles/theme'
 import { asThresholdValue } from '../types/branded'
 import type { AlarmThreshold } from '../types/domain'
@@ -82,22 +82,6 @@ function useCurrentTime(): string {
   return time
 }
 
-const statusLabel: Record<string, string> = {
-  connected: 'ONLINE',
-  connecting: 'CONNECTING...',
-  disconnected: 'OFFLINE',
-  timeout: 'TIMEOUT',
-  error: 'ERROR',
-}
-
-const statusColor: Record<string, string> = {
-  connected: theme.normal,
-  connecting: theme.warning,
-  disconnected: theme.border,
-  timeout: theme.warning,
-  error: theme.critical,
-}
-
 export const Dashboard: React.FC = () => {
   const [isTrendVisible, setIsTrendVisible] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -105,8 +89,6 @@ export const Dashboard: React.FC = () => {
 
   const melsecConfig = usePlcConfigStore((s) => s.configs[MELSEC_ID])
   const keyenceConfig = usePlcConfigStore((s) => s.configs[KEYENCE_ID])
-  const melsecStatus = usePlcStore((s) => s.connectionStatuses[MELSEC_ID] ?? 'disconnected')
-  const keyenceStatus = usePlcStore((s) => s.connectionStatuses[KEYENCE_ID] ?? 'disconnected')
   const activeAlarmCount = useAlarmStore((s) => s.entries.filter((e) => e.clearedAt === null).length)
 
   useAlarmMonitor()
@@ -149,7 +131,10 @@ export const Dashboard: React.FC = () => {
         overflow: 'hidden',
       }}
     >
-      {/* ── Title bar / Header ────────────────────────────────── */}
+      {/* ── GX Works-style IDE menu bar — desktop only (28px) ─── */}
+      {!isMobile && <MenuBar />}
+
+      {/* ── Title bar / Header (48px) ────────────────────────── */}
       <header
         style={{
           flexShrink: 0,
@@ -215,35 +200,8 @@ export const Dashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Connection badges + clock — mobile: clock only; desktop: badges + clock */}
+        {/* Clock — mobile: clock only; desktop: clock (status moved to MenuBar) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          {!isMobile && (
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(
-                [
-                  { id: MELSEC_ID, label: 'MELSEC', status: melsecStatus },
-                  { id: KEYENCE_ID, label: 'KV', status: keyenceStatus },
-                ] as const
-              ).map(({ id, label, status }) => (
-                <span
-                  key={id}
-                  style={{
-                    fontSize: theme.fs.xs,
-                    fontFamily: theme.fontMono,
-                    fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: 3,
-                    border: `1px solid ${statusColor[status]}`,
-                    color: statusColor[status],
-                    letterSpacing: '0.05em',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {label}: {statusLabel[status] ?? status.toUpperCase()}
-                </span>
-              ))}
-            </div>
-          )}
           <span
             style={{
               fontSize: isMobile ? theme.fs.sm : theme.fs.base,
@@ -345,6 +303,7 @@ export const Dashboard: React.FC = () => {
             { plcId: MELSEC_ID, label: 'Mitsubishi MELSEC' },
             { plcId: KEYENCE_ID, label: 'Keyence KV' },
           ]}
+          isMobile={isMobile}
           onClose={() => setIsSettingsOpen(false)}
         />
       )}
