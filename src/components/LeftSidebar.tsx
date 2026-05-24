@@ -13,6 +13,8 @@ export interface PlcHierarchyNode {
 
 interface LeftSidebarProps {
   nodes: PlcHierarchyNode[]
+  /** ADR-008: control slots rendered at sidebar bottom (desktop only) */
+  footer?: React.ReactNode
 }
 
 /* ── Status dot ───────────────────────────────────────── */
@@ -168,7 +170,7 @@ const PlcTreeNode: React.FC<PlcTreeNodeProps> = ({ node }) => {
  * PLCネットワーク階層ツリー。
  * ナビゲーションペインとして機能し、接続状態とレジスタ現在値をツリー表示する。
  */
-export const LeftSidebar: React.FC<LeftSidebarProps> = ({ nodes }) => {
+export const LeftSidebar: React.FC<LeftSidebarProps> = ({ nodes, footer }) => {
   return (
     <nav
       style={{
@@ -200,6 +202,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ nodes }) => {
           <PlcTreeNode key={node.plcId} node={node} />
         ))}
       </div>
+
+      {footer}
     </nav>
   )
 }

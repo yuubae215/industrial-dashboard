@@ -35,6 +35,19 @@
 
 ---
 
+## YC-003: Ribbon/Footer slot duplication and unused dead code
+
+- **Discovered:** 2026-05-24
+- **Violates Axiom:** Axiom 3 (Muscle Memory UX — single canonical slot surface)
+- **Locations:**
+  - `src/components/Ribbon.tsx` — implements 4 slots as horizontal toolbar (contradicts ADR-004 desktop sidebar topology)
+  - `src/components/Footer.tsx` — implements 4 slots as footer grid but is **never rendered** in `Dashboard.tsx` (dead code)
+- **Pattern:** Two components implement the same 4 fixed-slot concept with overlapping logic but diverging topologies. One component is entirely unused. This creates two competing "sources of truth" for slot behavior and prevents responsive layout from working correctly.
+- **Count:** 2 / 3
+- **Status:** Resolved — eliminated in ADR-008 (both files deleted; replaced by `FixedControlSlots` with `layout` prop)
+
+---
+
 ## Ascended Patterns (Reference)
 
 *None yet.*
