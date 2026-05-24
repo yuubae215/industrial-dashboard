@@ -11,16 +11,20 @@ Accepted (2026-05-24)
 When implementing responsive (tablet portrait) support for `Dashboard.tsx`, three pre-existing
 implementation gaps were found that contradict ADR-004 (UX Fixed-Slot Policy):
 
-#### Gap 1: `Footer.tsx` is dead code
+#### Gap 1: `Footer.tsx` — stale artifact from mobile-first origin
 
-`Footer.tsx` implements the 4 fixed-slot footer layout (ADR-004 mobile topology) but is never
-imported or rendered in `Dashboard.tsx`. The component exists but has no effect.
+`Footer.tsx` was the original mobile-mode control surface, implementing the 4 fixed-slot footer
+layout (ADR-004 mobile topology). During the subsequent desktop layout migration, it was
+intentionally disconnected from `Dashboard.tsx` but never deleted from the repository. The file
+retained correct mobile-slot logic but had no effect on the running application.
 
-#### Gap 2: `Ribbon.tsx` contradicts ADR-004 Desktop Layout
+#### Gap 2: `Ribbon.tsx` — desktop equivalent with topology mismatch
 
-ADR-004 Desktop Layout specifies that the 4 fixed slots must appear in the **left sidebar vertical
-column** (bottom section). Instead, `Ribbon.tsx` places them in a horizontal toolbar immediately
-below the header. This deviates from the document and creates a second operational channel.
+`Ribbon.tsx` was created as the desktop counterpart to `Footer.tsx`: icon-based controls for the
+desktop layout. However, ADR-004's Desktop Layout specifies that the 4 fixed slots must appear in
+the **left sidebar vertical column** (bottom section). `Ribbon.tsx` instead placed them in a
+horizontal toolbar immediately below the header, causing a documentation-code divergence without
+a corresponding ADR update to ratify the change.
 
 #### Gap 3: Slot roles not canonicalized for this application
 
