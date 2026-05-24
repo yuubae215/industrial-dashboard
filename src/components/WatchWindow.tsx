@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useDebugStore } from '../store/useDebugStore'
-import { useAlarmStore } from '../store/useAlarmStore'
+import { useSignalConfigStore } from '../store/useSignalConfigStore'
+import { useTrendConfigStore } from '../store/useTrendConfigStore'
 import { usePlcStore } from '../store/usePlcStore'
 import { usePlcWrite } from '../hooks/usePlcWrite'
 import { asThresholdValue } from '../types/branded'
 import { theme } from '../styles/theme'
 import { TouchButton } from './TouchButton'
-import type { AlarmThreshold, AlarmLevel, PlcConfig, WatchSlot, WatchSlotIndex } from '../types/domain'
+import type { PlcConfig, WatchSlotIndex } from '../types/domain'
 
 interface PendingWrite {
   slotIndex: WatchSlotIndex
@@ -20,30 +21,6 @@ function parseDeviceAddress(input: string): { deviceCode: string; address: numbe
   return { deviceCode: match[1], address: parseInt(match[2], 10) }
 }
 
-/** スロットの閾値フィールドから AlarmThreshold を組み立てる（asThresholdValue() 経由）。 */
-function buildThreshold(slot: WatchSlot): AlarmThreshold {
-  const threshold: AlarmThreshold = {
-    plcId: slot.plcId!,
-    address: slot.address!,
-    label: slot.comment || `${slot.deviceCode}${slot.address}`,
-    unit: '',
-  }
-  if (slot.thresholdHH != null) threshold.HH = asThresholdValue(slot.thresholdHH)
-  if (slot.thresholdH  != null) threshold.H  = asThresholdValue(slot.thresholdH)
-  if (slot.thresholdL  != null) threshold.L  = asThresholdValue(slot.thresholdL)
-  if (slot.thresholdLL != null) threshold.LL = asThresholdValue(slot.thresholdLL)
-  return threshold
-}
-
-function hasThreshold(slot: WatchSlot): boolean {
-  return (
-    slot.thresholdHH != null ||
-    slot.thresholdH  != null ||
-    slot.thresholdL  != null ||
-    slot.thresholdLL != null
-  )
-}
-
 interface WatchWindowProps {
   plcConfig: PlcConfig
   defaultPlcId: string
@@ -53,15 +30,17 @@ interface WatchWindowProps {
  * GxWorks3 風デバッグウォッチウィンドウ。
  * isMaintenanceMode = true のときのみ表示される。
  * 現在値は usePlcStore から毎回取得（ADR-005 準拠 — debugStore には値を保持しない）。
+ * 閾値は useSignalConfigStore、トレンド設定は useTrendConfigStore で管理（ADR-010）。
  */
 export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcId }) => {
   const isMaintenanceMode = useDebugStore((s) => s.isMaintenanceMode)
   const slots = useDebugStore((s) => s.slots)
   const updateSlot = useDebugStore((s) => s.updateSlot)
-  const toggleSlotActive = useDebugStore((s) => s.toggleSlotActive)
+  const signalConfigs = useSignalConfigStore((s) => s.configs)
+  const setSignalConfig = useSignalConfigStore((s) => s.setSignalConfig)
+  const trendConfigs = useTrendConfigStore((s) => s.configs)
+  const setTrendConfig = useTrendConfigStore((s) => s.setTrendConfig)
   const plcValues = usePlcStore((s) => s.values)
-  const setThreshold = useAlarmStore((s) => s.setThreshold)
-  const alarmThresholds = useAlarmStore((s) => s.thresholds)
   const { writeMitsubishi } = usePlcWrite()
 
   // 書き込み中状態（一時的な UI インタラクション — Zustand 不要なローカル state）
@@ -69,59 +48,28 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
   const [writeError, setWriteError] = useState<string | null>(null)
   const [addressInputs, setAddressInputs] = useState<Record<number, string>>({})
 
-  // localStorage から rehydrate されたスロット閾値を alarmStore に同期する（起動時 1 回）
-  useEffect(() => {
-    for (const slot of slots) {
-      if (slot.plcId && slot.address !== null && hasThreshold(slot)) {
-        setThreshold(buildThreshold(slot))
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // コンフィグ由来の閾値をスロット欄に反映する（useDeviceConfig の非同期ロード完了後に発火）
-  // 閾値未設定スロットのみ対象とし、ユーザーが明示的に設定した値は上書きしない
-  useEffect(() => {
-    const currentSlots = useDebugStore.getState().slots
-    for (const slot of currentSlots) {
-      if (slot.plcId === null || slot.address === null || hasThreshold(slot)) continue
-      const existing = alarmThresholds.find(
-        (t) => t.plcId === slot.plcId && t.address === slot.address,
-      )
-      const levels: AlarmLevel[] = ['HH', 'H', 'L', 'LL']
-      if (existing && levels.some((lv) => existing[lv] !== undefined)) {
-        updateSlot(slot.index as WatchSlotIndex, {
-          thresholdHH: existing.HH ?? null,
-          thresholdH:  existing.H  ?? null,
-          thresholdL:  existing.L  ?? null,
-          thresholdLL: existing.LL ?? null,
-        })
-      }
-    }
-  }, [alarmThresholds, updateSlot])
-
   if (!isMaintenanceMode) return null
 
   const handleAddressChange = (index: WatchSlotIndex, raw: string) => {
     setAddressInputs((prev) => ({ ...prev, [index]: raw }))
     const parsed = parseDeviceAddress(raw)
     if (parsed) {
-      // コンフィグ由来の閾値がすでに存在する場合はスロット欄にプリポピュレーション
-      const existing = useAlarmStore.getState().thresholds.find(
-        (t) => t.plcId === defaultPlcId && t.address === parsed.address,
-      )
+      // アドレスが変わった場合、旧アドレスのトレンドを非アクティブ化
+      const prevSlot = slots.find((s) => s.index === index)
+      if (prevSlot?.plcId && prevSlot.address !== null && prevSlot.address !== parsed.address) {
+        setTrendConfig(prevSlot.plcId, prevSlot.address, { isActive: false })
+      }
       updateSlot(index, {
         address: parsed.address,
         deviceCode: parsed.deviceCode,
         plcId: defaultPlcId,
-        ...(existing ? {
-          thresholdHH: existing.HH ?? null,
-          thresholdH:  existing.H  ?? null,
-          thresholdL:  existing.L  ?? null,
-          thresholdLL: existing.LL ?? null,
-        } : {}),
       })
     } else if (raw === '') {
+      // アドレスクリア時にトレンドを非アクティブ化
+      const prevSlot = slots.find((s) => s.index === index)
+      if (prevSlot?.plcId && prevSlot.address !== null) {
+        setTrendConfig(prevSlot.plcId, prevSlot.address, { isActive: false })
+      }
       updateSlot(index, { address: null, plcId: null })
     }
   }
@@ -133,17 +81,32 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
   ) => {
     const parsed = raw === '' ? null : parseFloat(raw)
     const val = parsed === null || isNaN(parsed) ? null : parsed
-    const key = `threshold${level}` as 'thresholdHH' | 'thresholdH' | 'thresholdL' | 'thresholdLL'
-    updateSlot(index, { [key]: val })
 
     const slot = slots[index]
-    if (slot.plcId && slot.address !== null) {
-      setThreshold(buildThreshold({ ...slot, [key]: val }))
+    if (!slot.plcId || slot.address === null) return
+
+    const existing = signalConfigs.find(
+      (c) => c.plcId === slot.plcId && c.address === slot.address,
+    )
+    const base = existing ?? {
+      plcId: slot.plcId,
+      address: slot.address,
+      label: `${slot.deviceCode}${slot.address}`,
+      unit: '',
     }
+    const updated = { ...base }
+    if (val !== null) {
+      updated[level] = asThresholdValue(val)
+    } else {
+      delete updated[level]
+    }
+    setSignalConfig(updated)
   }
 
-  const handleConfirmWrite = async (slot: WatchSlot) => {
-    if (!pendingWrite || slot.address === null || slot.plcId === null) return
+  const handleConfirmWrite = async (slotIndex: WatchSlotIndex) => {
+    if (!pendingWrite) return
+    const slot = slots.find((s) => s.index === slotIndex)
+    if (!slot || slot.address === null || slot.plcId === null) return
     const numVal = parseInt(pendingWrite.inputValue, 10)
     if (isNaN(numVal)) {
       setWriteError('Please enter an integer value')
@@ -219,12 +182,30 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
               addressInputs[slot.index] ??
               (slot.address !== null ? `${slot.deviceCode}${slot.address}` : '')
 
+            // 閾値は useSignalConfigStore から取得（ADR-010 Phase 1）
+            const signalConfig =
+              slot.plcId && slot.address !== null
+                ? signalConfigs.find(
+                    (c) => c.plcId === slot.plcId && c.address === slot.address,
+                  )
+                : undefined
+
+            // トレンド設定は useTrendConfigStore から取得（ADR-010 Phase 2）
+            const trendConfig =
+              slot.plcId && slot.address !== null
+                ? trendConfigs.find(
+                    (c) => c.plcId === slot.plcId && c.address === slot.address,
+                  )
+                : undefined
+
+            const isActive = trendConfig?.isActive ?? false
+
             return (
               <tr
                 key={slot.index}
                 style={{
                   borderBottom: `1px solid ${theme.border}`,
-                  background: slot.isActive ? `${theme.accent}14` : 'transparent',
+                  background: isActive ? `${theme.accent}14` : 'transparent',
                 }}
               >
                 <td style={tdStyle}>
@@ -264,7 +245,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                   <td key={level} style={{ ...tdStyle, padding: '4px 4px', textAlign: 'center' }}>
                     <input
                       type="number"
-                      value={slot[`threshold${level}`] ?? ''}
+                      value={signalConfig?.[level] ?? ''}
                       onChange={(e) =>
                         handleThresholdChange(slot.index as WatchSlotIndex, level, e.target.value)
                       }
@@ -284,14 +265,18 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                 <td style={{ ...tdStyle, padding: '4px 6px', textAlign: 'center' }}>
                   {slot.address !== null ? (
                     <button
-                      onClick={() => toggleSlotActive(slot.index as WatchSlotIndex)}
-                      title={slot.isActive ? 'Remove from trend chart' : 'Add to trend chart'}
+                      onClick={() => {
+                        if (slot.plcId && slot.address !== null) {
+                          setTrendConfig(slot.plcId, slot.address, { isActive: !isActive })
+                        }
+                      }}
+                      title={isActive ? 'Remove from trend chart' : 'Add to trend chart'}
                       style={{
                         background: 'none',
-                        border: `1px solid ${slot.isActive ? theme.accent : theme.border}`,
+                        border: `1px solid ${isActive ? theme.accent : theme.border}`,
                         borderRadius: 3,
                         cursor: 'pointer',
-                        color: slot.isActive ? theme.accent : theme.textMuted,
+                        color: isActive ? theme.accent : theme.textMuted,
                         fontSize: 16,
                         lineHeight: 1,
                         padding: '2px 8px',
@@ -299,7 +284,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                         transition: 'color 0.15s, border-color 0.15s',
                       }}
                     >
-                      {slot.isActive ? '●' : '○'}
+                      {isActive ? '●' : '○'}
                     </button>
                   ) : (
                     <span style={{ color: theme.border, fontSize: 12 }}>—</span>
@@ -308,12 +293,19 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
 
                 <td style={{ ...tdStyle, padding: '4px 6px' }}>
                   <input
-                    value={slot.comment}
-                    onChange={(e) =>
-                      updateSlot(slot.index as WatchSlotIndex, { comment: e.target.value })
-                    }
+                    value={trendConfig?.label ?? ''}
+                    onChange={(e) => {
+                      if (slot.plcId && slot.address !== null) {
+                        setTrendConfig(slot.plcId, slot.address, { label: e.target.value })
+                      }
+                    }}
                     placeholder="Comment (e.g. Line A interlock)"
-                    style={{ ...inputStyle, width: '95%' }}
+                    disabled={slot.address === null}
+                    style={{
+                      ...inputStyle,
+                      width: '95%',
+                      opacity: slot.address === null ? 0.3 : 1,
+                    }}
                   />
                 </td>
 
@@ -332,7 +324,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                       <TouchButton
                         label="Confirm"
                         variant="critical"
-                        onClick={() => handleConfirmWrite(slot)}
+                        onClick={() => handleConfirmWrite(slot.index as WatchSlotIndex)}
                         style={{ minHeight: 32, minWidth: 48, fontSize: 12 }}
                       />
                       <TouchButton

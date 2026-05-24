@@ -1,18 +1,19 @@
 import { usePlcStore } from '../store/usePlcStore'
-import { useAlarmStore } from '../store/useAlarmStore'
+import { useSignalConfigStore } from '../store/useSignalConfigStore'
 import { toEngineeringValue } from '../types/branded'
 import { alarmLevelColor, theme } from '../styles/theme'
-import type { AlarmThreshold, AlarmLevel, ConnectionStatus } from '../types/domain'
+import type { AlarmLevel, ConnectionStatus } from '../types/domain'
+import type { SignalConfig } from '../store/useSignalConfigStore'
 import type { PlcRawValue } from '../types/branded'
 
 export function computeCurrentAlarmLevel(
   raw: PlcRawValue,
-  threshold: AlarmThreshold,
+  config: SignalConfig,
 ): AlarmLevel | null {
-  if (threshold.HH !== undefined && raw >= threshold.HH) return 'HH'
-  if (threshold.H  !== undefined && raw >= threshold.H)  return 'H'
-  if (threshold.LL !== undefined && raw <= threshold.LL) return 'LL'
-  if (threshold.L  !== undefined && raw <= threshold.L)  return 'L'
+  if (config.HH !== undefined && raw >= config.HH) return 'HH'
+  if (config.H  !== undefined && raw >= config.H)  return 'H'
+  if (config.LL !== undefined && raw <= config.LL) return 'LL'
+  if (config.L  !== undefined && raw <= config.L)  return 'L'
   return null
 }
 
@@ -33,7 +34,6 @@ interface MetricCardProps {
   scale?: number
   unit?: string
   quantityType?: QuantityType
-  threshold?: AlarmThreshold
 }
 
 export const MetricCard: React.FC<MetricCardProps> = ({
@@ -43,23 +43,17 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   scale = 1,
   unit = '',
   quantityType = 'generic',
-  threshold,
 }) => {
   const raw = usePlcStore((s) => s.values[plcId]?.[address])
   const status = usePlcStore((s) => s.connectionStatuses[plcId] ?? 'disconnected')
-  const storedThreshold = useAlarmStore((s) =>
-    threshold
-      ? (s.thresholds.find(
-          (t) => t.plcId === threshold.plcId && t.address === threshold.address,
-        ) ?? threshold)
-      : undefined,
+  const signalConfig = useSignalConfigStore(
+    (s) => s.configs.find((c) => c.plcId === plcId && c.address === address),
   )
-  const activeThreshold = storedThreshold ?? threshold
 
   // [Axiom 2] forward-computed each render — never stored in state
   const alarmLevel =
-    raw !== undefined && activeThreshold
-      ? computeCurrentAlarmLevel(raw, activeThreshold)
+    raw !== undefined && signalConfig
+      ? computeCurrentAlarmLevel(raw, signalConfig)
       : null
 
   const isAlarm = alarmLevel !== null

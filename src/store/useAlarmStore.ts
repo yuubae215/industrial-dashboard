@@ -2,40 +2,28 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { usePlcStore } from './usePlcStore'
 import { useDebugStore } from './useDebugStore'
-import type { AlarmThreshold, AlarmEntry, AlarmLevel } from '../types/domain'
+import { useSignalConfigStore } from './useSignalConfigStore'
+import type { AlarmEntry, AlarmLevel } from '../types/domain'
 import type { PlcRawValue } from '../types/branded'
+import type { SignalConfig } from './useSignalConfigStore'
 
 interface AlarmState {
-  thresholds: AlarmThreshold[]
   entries: AlarmEntry[]
 
-  setThreshold: (threshold: AlarmThreshold) => void
   acknowledgeAlarm: (id: string) => void
   _processNewValues: (plcId: string, addressMap: Record<number, PlcRawValue>) => void
 }
 
-function evaluateLevel(raw: PlcRawValue, threshold: AlarmThreshold): AlarmLevel | null {
-  if (threshold.HH !== undefined && raw >= threshold.HH) return 'HH'
-  if (threshold.H  !== undefined && raw >= threshold.H)  return 'H'
-  if (threshold.LL !== undefined && raw <= threshold.LL) return 'LL'
-  if (threshold.L  !== undefined && raw <= threshold.L)  return 'L'
+function evaluateLevel(raw: PlcRawValue, config: SignalConfig): AlarmLevel | null {
+  if (config.HH !== undefined && raw >= config.HH) return 'HH'
+  if (config.H  !== undefined && raw >= config.H)  return 'H'
+  if (config.LL !== undefined && raw <= config.LL) return 'LL'
+  if (config.L  !== undefined && raw <= config.L)  return 'L'
   return null
 }
 
 export const useAlarmStore = create<AlarmState>((set, get) => ({
-  thresholds: [],
   entries: [],
-
-  setThreshold: (threshold) =>
-    set((state) => {
-      const idx = state.thresholds.findIndex(
-        (t) => t.plcId === threshold.plcId && t.address === threshold.address
-      )
-      const updated = idx >= 0
-        ? state.thresholds.map((t, i) => (i === idx ? threshold : t))
-        : [...state.thresholds, threshold]
-      return { thresholds: updated }
-    }),
 
   acknowledgeAlarm: (id) =>
     set((state) => ({
@@ -45,8 +33,9 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
     })),
 
   _processNewValues: (plcId, addressMap) => {
-    const { thresholds, entries } = get()
+    const { entries } = get()
     const { slots } = useDebugStore.getState()
+    const { configs } = useSignalConfigStore.getState()
     const now = Date.now()
 
     // WatchSlot に登録済みのアドレスのみアラームを評価する
@@ -57,16 +46,16 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
     const nextEntries = [...entries]
     let changed = false
 
-    for (const threshold of thresholds) {
-      if (threshold.plcId !== plcId) continue
-      const raw = addressMap[threshold.address]
+    for (const config of configs) {
+      if (config.plcId !== plcId) continue
+      const raw = addressMap[config.address]
       if (raw === undefined) continue
 
       const levels: AlarmLevel[] = ['HH', 'H', 'L', 'LL']
       for (const level of levels) {
-        if (threshold[level] === undefined) continue
+        if (config[level] === undefined) continue
 
-        const alarmKey = `${plcId}:${threshold.address}:${level}`
+        const alarmKey = `${plcId}:${config.address}:${level}`
 
         // ES2020 compatible findLastIndex
         const activeIdx = (() => {
@@ -77,7 +66,7 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
         })()
 
         // WatchSlot 未登録アドレス: アクティブアラームがあれば解除してスキップ
-        if (!watchedAddresses.has(threshold.address)) {
+        if (!watchedAddresses.has(config.address)) {
           if (activeIdx >= 0) {
             nextEntries[activeIdx] = { ...nextEntries[activeIdx], clearedAt: now }
             changed = true
@@ -85,13 +74,13 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
           continue
         }
 
-        const triggered = evaluateLevel(raw, threshold) === level
+        const triggered = evaluateLevel(raw, config) === level
 
         if (triggered && activeIdx === -1) {
           nextEntries.push({
             id: `${alarmKey}:${now}`,
             plcId,
-            address: threshold.address,
+            address: config.address,
             level,
             triggerValue: raw,
             triggeredAt: now,
@@ -111,7 +100,6 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
 }))
 
 // クロスストア購読: plcStore の値変更ごとにアラーム評価を実行（Zustand 公式パターン）
-// このモジュールスコープの subscribe は React レンダー外で動作し、フィードバックループを生じない。
 usePlcStore.subscribe((state) => {
   const { _processNewValues } = useAlarmStore.getState()
   for (const plcId of Object.keys(state.values)) {
@@ -122,12 +110,10 @@ usePlcStore.subscribe((state) => {
 /**
  * アラーム監視フックを初期化する。
  * App.tsx でレンダーツリーのルートで一度だけ呼ぶ。
- * useAlarmStore がインポートされた時点で subscribe は登録済みだが、
- * このフックを使うことでモジュール初期化の副作用を明示的に管理できる。
  */
 export function useAlarmMonitor(): void {
   useEffect(() => {
     // モジュールレベルの subscribe がすでに登録されているため、
-    // ここでの追加登録は不要。このフックはモジュールの確実なロードを保証する。
+    // このフックはモジュールの確実なロードを保証する。
   }, [])
 }

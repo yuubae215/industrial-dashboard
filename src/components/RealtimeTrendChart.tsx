@@ -11,9 +11,11 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { useDebugStore } from '../store/useDebugStore'
+import { useSignalConfigStore } from '../store/useSignalConfigStore'
+import { useTrendConfigStore } from '../store/useTrendConfigStore'
 import { usePlcStore } from '../store/usePlcStore'
 import { theme, alarmLevelColor } from '../styles/theme'
-import type { WatchSlot, WatchSlotIndex } from '../types/domain'
+import type { WatchSlotIndex } from '../types/domain'
 
 const WINDOW_SECONDS = 60
 
@@ -31,22 +33,27 @@ const LINE_COLORS = [
   '#EC4899', // pink
 ]
 
-/** アクティブスロットを絞り込む型ガード（address・plcId が確定済みであることを保証） */
-function isReadySlot(s: WatchSlot): s is WatchSlot & { address: number; plcId: string } {
-  return s.isActive && s.address !== null && s.plcId !== null
-}
-
 /**
  * ウォッチウィンドウでアクティブ化された信号のマルチ信号トレンドチャート。
- * 表示する信号は useDebugStore から取得し（公理2: SSOT）、
+ * アクティブ状態は useTrendConfigStore、閾値は useSignalConfigStore から取得（ADR-010）。
  * 生値は usePlcStore の trendHistory から毎回算出する（公理2: UI に前回値を持たない）。
  */
 export const RealtimeTrendChart: React.FC = () => {
   const slots = useDebugStore((s) => s.slots)
+  const signalConfigs = useSignalConfigStore((s) => s.configs)
+  const trendConfigs = useTrendConfigStore((s) => s.configs)
   const trendHistory = usePlcStore((s) => s.trendHistory)
 
-  // アドレス・plcId が確定しアクティブなスロットのみ抽出（型ガードで null を排除）
-  const activeSlots = useMemo(() => slots.filter(isReadySlot), [slots])
+  // アドレス・plcId が確定しトレンドがアクティブなスロットのみ抽出
+  const activeSlots = useMemo(
+    () =>
+      slots.filter((s) => {
+        if (s.address === null || s.plcId === null) return false
+        const tc = trendConfigs.find((c) => c.plcId === s.plcId && c.address === s.address)
+        return tc?.isActive ?? false
+      }),
+    [slots, trendConfigs],
+  )
 
   // [UI公準3] useMemo: 全アクティブ信号のトレンドを統合タイムラインに合成
   const { chartData, signalKeys } = useMemo(() => {
@@ -58,7 +65,7 @@ export const RealtimeTrendChart: React.FC = () => {
     // タイムスタンプ → 各信号の値マップを構築
     const tsMap = new Map<number, Record<string, number>>()
     activeSlots.forEach((slot, i) => {
-      const points = trendHistory[slot.plcId]?.[slot.address] ?? []
+      const points = trendHistory[slot.plcId!]?.[slot.address!] ?? []
       const key = keys[i]
       points.forEach((pt) => {
         const row = tsMap.get(pt.timestamp) ?? {}
@@ -115,51 +122,32 @@ export const RealtimeTrendChart: React.FC = () => {
     )
   }
 
-  // ウォッチウィンドウでユーザーが入力したしきい値のみを参照線として描画
-  // （useAlarmStore.thresholds は device config 由来の値も含むため使用しない）
+  // useSignalConfigStore から閾値参照線を取得（ADR-010 Phase 1）
   const referenceLines = activeSlots.flatMap((slot) => {
     const prefix = `${slot.deviceCode}${slot.address}`
+    const sc = signalConfigs.find(
+      (c) => c.plcId === slot.plcId && c.address === slot.address,
+    )
+    if (!sc) return []
     const lines: React.ReactElement[] = []
-    if (slot.thresholdHH !== null)
+    const levelMap: Array<['HH' | 'H' | 'L' | 'LL', number | undefined]> = [
+      ['HH', sc.HH],
+      ['H',  sc.H],
+      ['L',  sc.L],
+      ['LL', sc.LL],
+    ]
+    for (const [level, val] of levelMap) {
+      if (val === undefined) continue
       lines.push(
         <ReferenceLine
-          key={`${slot.index as WatchSlotIndex}-HH`}
-          y={slot.thresholdHH}
-          stroke={alarmLevelColor['HH']}
+          key={`${slot.index as WatchSlotIndex}-${level}`}
+          y={val}
+          stroke={alarmLevelColor[level]}
           strokeDasharray="4 2"
-          label={{ value: `${prefix} HH`, fill: alarmLevelColor['HH'], fontSize: 10 }}
-        />
+          label={{ value: `${prefix} ${level}`, fill: alarmLevelColor[level], fontSize: 10 }}
+        />,
       )
-    if (slot.thresholdH !== null)
-      lines.push(
-        <ReferenceLine
-          key={`${slot.index as WatchSlotIndex}-H`}
-          y={slot.thresholdH}
-          stroke={alarmLevelColor['H']}
-          strokeDasharray="4 2"
-          label={{ value: `${prefix} H`, fill: alarmLevelColor['H'], fontSize: 10 }}
-        />
-      )
-    if (slot.thresholdL !== null)
-      lines.push(
-        <ReferenceLine
-          key={`${slot.index as WatchSlotIndex}-L`}
-          y={slot.thresholdL}
-          stroke={alarmLevelColor['L']}
-          strokeDasharray="4 2"
-          label={{ value: `${prefix} L`, fill: alarmLevelColor['L'], fontSize: 10 }}
-        />
-      )
-    if (slot.thresholdLL !== null)
-      lines.push(
-        <ReferenceLine
-          key={`${slot.index as WatchSlotIndex}-LL`}
-          y={slot.thresholdLL}
-          stroke={alarmLevelColor['LL']}
-          strokeDasharray="4 2"
-          label={{ value: `${prefix} LL`, fill: alarmLevelColor['LL'], fontSize: 10 }}
-        />
-      )
+    }
     return lines
   })
 
@@ -205,7 +193,10 @@ export const RealtimeTrendChart: React.FC = () => {
           />
           {signalKeys.map((key, i) => {
             const slot = activeSlots[i]
-            const label = slot.comment.trim() || key
+            const tc = trendConfigs.find(
+              (c) => c.plcId === slot.plcId && c.address === slot.address,
+            )
+            const label = tc?.label.trim() || key
             return (
               <Line
                 key={key}

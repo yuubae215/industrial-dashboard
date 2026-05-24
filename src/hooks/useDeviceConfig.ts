@@ -1,43 +1,40 @@
 import { useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { useAlarmStore } from '../store/useAlarmStore'
+import { useSignalConfigStore } from '../store/useSignalConfigStore'
 import { asThresholdValue } from '../types/branded'
-import type { AlarmThreshold, DeviceConfig } from '../types/domain'
+import type { SignalConfig } from '../store/useSignalConfigStore'
+import type { DeviceConfig } from '../types/domain'
 
-const FALLBACK_THRESHOLDS: AlarmThreshold[] = []
-
-function configToThresholds(config: DeviceConfig): AlarmThreshold[] {
+function configToSignalConfigs(config: DeviceConfig): SignalConfig[] {
   return config.signals.map((signal) => {
-    const threshold: AlarmThreshold = {
+    const sc: SignalConfig = {
       plcId: signal.plcId,
       address: signal.address,
       label: signal.name,
       unit: signal.unit,
     }
     for (const alert of signal.alerts) {
-      if (alert.kind === 'HH') threshold.HH = asThresholdValue(alert.threshold)
-      else if (alert.kind === 'H') threshold.H = asThresholdValue(alert.threshold)
-      else if (alert.kind === 'L') threshold.L = asThresholdValue(alert.threshold)
-      else if (alert.kind === 'LL') threshold.LL = asThresholdValue(alert.threshold)
+      if (alert.kind === 'HH') sc.HH = asThresholdValue(alert.threshold)
+      else if (alert.kind === 'H') sc.H = asThresholdValue(alert.threshold)
+      else if (alert.kind === 'L') sc.L = asThresholdValue(alert.threshold)
+      else if (alert.kind === 'LL') sc.LL = asThresholdValue(alert.threshold)
     }
-    return threshold
+    return sc
   })
 }
 
 export function useDeviceConfig(): void {
-  const setThreshold = useAlarmStore((s) => s.setThreshold)
+  const setSignalConfig = useSignalConfigStore((s) => s.setSignalConfig)
 
   useEffect(() => {
     invoke<DeviceConfig>('config_load')
       .then((config) => {
-        for (const threshold of configToThresholds(config)) {
-          setThreshold(threshold)
+        for (const sc of configToSignalConfigs(config)) {
+          setSignalConfig(sc)
         }
       })
       .catch(() => {
-        for (const threshold of FALLBACK_THRESHOLDS) {
-          setThreshold(threshold)
-        }
+        // config ファイルが存在しない場合は何もしない（ユーザーが手動で設定）
       })
-  }, [setThreshold])
+  }, [setSignalConfig])
 }

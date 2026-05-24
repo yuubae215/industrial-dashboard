@@ -20,18 +20,6 @@ export const ALARM_SEVERITY: Record<AlarmLevel, number> = {
   HH: 4, H: 3, L: 2, LL: 1,
 }
 
-/** デバイスごとのアラームしきい値設定（PlcRawValue 単位）。 */
-export interface AlarmThreshold {
-  plcId: string
-  address: number
-  label: string
-  unit: string
-  HH?: PlcRawValue
-  H?: PlcRawValue
-  L?: PlcRawValue
-  LL?: PlcRawValue
-}
-
 /**
  * アラームイベント記録（発生〜復旧〜確認のライフサイクル）。
  * これは "警告フラグ"（ADR-005 で禁止）ではなく、タイムスタンプ付きの domain state。
@@ -64,19 +52,13 @@ export interface TrendPoint {
 /** Watch Window の固定スロットインデックス（0–9、不変）。 */
 export type WatchSlotIndex = 0|1|2|3|4|5|6|7|8|9
 
+/** Watch Window スロット — アドレスとスロット番号の対応表のみ保持（ADR-010）。
+ * トレンド表示設定は useTrendConfigStore、閾値は useSignalConfigStore で管理する。 */
 export interface WatchSlot {
   index: WatchSlotIndex
   address: number | null
   deviceCode: string
   plcId: string | null
-  comment: string
-  /** true のとき、このスロットの信号をトレンドチャートに表示する */
-  isActive: boolean
-  /** アラーム閾値（plain number; alarmStore への書き込み時に asThresholdValue() 経由で変換する） */
-  thresholdHH: number | null
-  thresholdH:  number | null
-  thresholdL:  number | null
-  thresholdLL: number | null
 }
 
 // ---------------------------------------------------------------------------
