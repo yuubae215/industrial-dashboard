@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { usePlcStore } from './usePlcStore'
+import { useDebugStore } from './useDebugStore'
 import type { AlarmThreshold, AlarmEntry, AlarmLevel } from '../types/domain'
 import type { PlcRawValue } from '../types/branded'
 
@@ -45,7 +46,14 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
 
   _processNewValues: (plcId, addressMap) => {
     const { thresholds, entries } = get()
+    const { slots } = useDebugStore.getState()
     const now = Date.now()
+
+    // WatchSlot に登録済みのアドレスのみアラームを評価する
+    const watchedAddresses = new Set(
+      slots.filter(s => s.plcId === plcId && s.address !== null).map(s => s.address as number)
+    )
+
     const nextEntries = [...entries]
     let changed = false
 
@@ -58,7 +66,6 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
       for (const level of levels) {
         if (threshold[level] === undefined) continue
 
-        const triggered = evaluateLevel(raw, threshold) === level
         const alarmKey = `${plcId}:${threshold.address}:${level}`
 
         // ES2020 compatible findLastIndex
@@ -68,6 +75,17 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
           }
           return -1
         })()
+
+        // WatchSlot 未登録アドレス: アクティブアラームがあれば解除してスキップ
+        if (!watchedAddresses.has(threshold.address)) {
+          if (activeIdx >= 0) {
+            nextEntries[activeIdx] = { ...nextEntries[activeIdx], clearedAt: now }
+            changed = true
+          }
+          continue
+        }
+
+        const triggered = evaluateLevel(raw, threshold) === level
 
         if (triggered && activeIdx === -1) {
           nextEntries.push({

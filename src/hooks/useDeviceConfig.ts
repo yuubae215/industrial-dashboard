@@ -4,18 +4,7 @@ import { useAlarmStore } from '../store/useAlarmStore'
 import { asThresholdValue } from '../types/branded'
 import type { AlarmThreshold, DeviceConfig } from '../types/domain'
 
-const FALLBACK_THRESHOLDS: AlarmThreshold[] = [
-  {
-    plcId: 'melsec-line-a',
-    address: 1000,
-    label: 'Mitsubishi Line A Furnace Temp',
-    unit: 'degC',
-    HH: asThresholdValue(2500),
-    H: asThresholdValue(2000),
-    L: asThresholdValue(500),
-    LL: asThresholdValue(200),
-  },
-]
+const FALLBACK_THRESHOLDS: AlarmThreshold[] = []
 
 function configToThresholds(config: DeviceConfig): AlarmThreshold[] {
   return config.signals.map((signal) => {

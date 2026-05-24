@@ -79,15 +79,10 @@ fn default_config() -> DeviceConfig {
 pub fn load() -> Result<DeviceConfig, String> {
     let path = config_path();
     if !path.exists() {
-        let dir = config_dir();
-        fs::create_dir_all(&dir)
-            .map_err(|e| format!("Failed to create config dir: {e}"))?;
-        let default = default_config();
-        let json = serde_json::to_string_pretty(&default)
-            .map_err(|e| format!("Failed to serialize default config: {e}"))?;
-        fs::write(&path, json)
-            .map_err(|e| format!("Failed to write default config: {e}"))?;
-        return Ok(default);
+        return Ok(DeviceConfig {
+            version: "1.0.0".to_string(),
+            signals: vec![],
+        });
     }
     let json = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read config: {e}"))?;
