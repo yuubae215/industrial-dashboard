@@ -29,17 +29,11 @@ const PLC_NODES: PlcHierarchyNode[] = [
     plcId: MELSEC_ID,
     label: 'MELSEC Q-Series',
     protocolLabel: 'MC Protocol 3E Frame',
-    device: 'D',
-    startAddress: START_ADDRESS,
-    count: READ_COUNT,
   },
   {
     plcId: KEYENCE_ID,
     label: 'Keyence KV-8000',
     protocolLabel: 'Upper Link',
-    device: 'DM',
-    startAddress: START_ADDRESS,
-    count: READ_COUNT,
   },
 ]
 
@@ -118,11 +112,11 @@ export const Dashboard: React.FC = () => {
       {/* ── GX Works-style IDE menu bar — desktop only (28px) ─── */}
       {!isMobile && <MenuBar />}
 
-      {/* ── Title bar / Header (48px) ────────────────────────── */}
+      {/* ── Title bar / Header ───────────────────────────────── */}
       <header
         style={{
           flexShrink: 0,
-          height: 48,
+          height: isMobile ? 48 : 36,
           padding: isMobile ? '0 12px' : '0 20px',
           background: theme.bgHeader,
           borderBottom: `1px solid ${theme.border}`,
@@ -133,26 +127,21 @@ export const Dashboard: React.FC = () => {
           minWidth: 0,
         }}
       >
-        {/* App title — mobile: truncate; desktop: full title + subtitle */}
+        {/* App title — mobile: full title; desktop: compact subtitle only (window title bar has app name) */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, minWidth: 0, flexShrink: 1 }}>
           <span
             style={{
-              fontSize: isMobile ? theme.fs.sm : theme.fs.md,
-              fontWeight: 700,
-              color: theme.text,
-              letterSpacing: '0.06em',
+              fontSize: isMobile ? theme.fs.sm : theme.fs.xs,
+              fontWeight: isMobile ? 700 : 400,
+              color: isMobile ? theme.text : theme.textMuted,
+              letterSpacing: isMobile ? '0.06em' : '0.04em',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
             }}
           >
-            INDUSTRIAL DASHBOARD
+            {isMobile ? 'INDUSTRIAL DASHBOARD' : `MC Protocol 3E — ${INTERVAL_MS}ms`}
           </span>
-          {!isMobile && (
-            <span style={{ fontSize: theme.fs.xs, color: theme.textMuted, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-              MC Protocol 3E &mdash; {INTERVAL_MS}ms
-            </span>
-          )}
         </div>
 
         {/* Active alarm chip */}
@@ -205,11 +194,11 @@ export const Dashboard: React.FC = () => {
       {/* ── Body ──────────────────────────────────────────────── */}
       {/* ADR-008: desktop = 3-column row; mobile = single column */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Desktop only: left sidebar (PLC tree + fixed control slots at bottom) */}
+        {/* Desktop only: left sidebar (PLC tree + icon toolbar at top) */}
         {!isMobile && (
           <LeftSidebar
             nodes={PLC_NODES}
-            footer={
+            toolbar={
               <FixedControlSlots
                 layout="vertical"
                 isTrendVisible={isTrendVisible}

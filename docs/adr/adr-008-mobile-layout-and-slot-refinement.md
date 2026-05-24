@@ -65,27 +65,29 @@ container geometry changes.
 
 Both files are deleted. `FixedControlSlots` covers both use cases.
 
-### 4. Desktop: move control slots to left sidebar bottom (per ADR-004)
+### 4. Desktop: control slots as icon ribbon toolbar at sidebar top
 
-`LeftSidebar` gains an optional `footer` prop. `Dashboard.tsx` passes
-`<FixedControlSlots layout="vertical" … />` there, which aligns the desktop layout with the
-topology diagram in ADR-004:
+`LeftSidebar` accepts a `toolbar` prop. `Dashboard.tsx` passes
+`<FixedControlSlots layout="vertical" … />` there. The slots render as a compact horizontal
+icon ribbon (28×28px buttons) positioned between the "FIELD NETWORK" section header and the
+PLC tree, replacing the original text-button vertical stack at the sidebar bottom.
 
 ```
 ┌──────────┬──────────────────────────────┬───────────┐
 │ FIELD    │         MAIN CONTENT         │  ACTIVE   │
 │ NETWORK  │                              │  ALARMS   │
-│          │  RealtimeTrendChart          │           │
-│ MELSEC   │  WatchWindow                 │           │
+│ ⬅ ⚙ 📈 🔧 │  RealtimeTrendChart          │           │
+│ ──────── │  WatchWindow                 │           │
+│ MELSEC   │                              │           │
+│  IP/Port │                              │           │
 │ Keyence  │                              │           │
-│ ──────── │                              │           │
-│ [BACK  ] │                              │           │
-│ [SETTING] │                              │           │
-│ [TREND ] │                              │           │
-│ [MAINT ] │                              │           │
+│  IP/Port │                              │           │
 └──────────┴──────────────────────────────┴───────────┘
 │ STATUS BAR: MODE | POLLING | TAG COUNT               │
 ```
+
+The sidebar tree now shows network info (IP, port, poll interval) instead of live register values.
+Live register values belong exclusively to the Watch Window (Axiom 2 / ADR-005).
 
 ### 5. Mobile: footer with 4 horizontal slots (per ADR-004 original topology)
 

@@ -201,17 +201,17 @@ prohibited.** The same component tree adapts via `isMobile` style tokens.
 +-----------------------------------------------------------------------+
 | MENU BAR (28px) [Project][View][Online][Tools]  MELSEC•  KV•         |
 +-----------------------------------------------------------------------+
-| HEADER (48px)  INDUSTRIAL DASHBOARD — 500ms          HH:MM:SS        |
+| HEADER (36px)  MC Protocol 3E — 500ms               HH:MM:SS        |
 +------------+--------------------------------------------------+
 | LEFT       |         MAIN CONTENT                             |
 | SIDEBAR    |                                                  |
-| (200px)    |  RealtimeTrendChart / WatchWindow                |
-|            |                                                  |
-| PLC Tree   |                                                  |
+| FIELD      |  RealtimeTrendChart / WatchWindow                |
+| NETWORK    |                                                  |
+| [⬅][⚙][📈][🔧]  ← icon ribbon toolbar (horizontal, 28px)       |
 | ---------- |                                                  |
-| Fixed      |                                                  |
-| Slots 0-3  |                                                  |
-| (vertical) |                                                  |
+| PLC Tree   |                                                  |
+| (IP/Port   |                                                  |
+|  info)     |                                                  |
 +------------+--------------------------------------------------+
 | DIAGNOSTIC PANE (200px) [ALARMS] [OUTPUT]  — IDE Output window |
 | HH 14:22:01  melsec-line-a D1000 = 2510 — High-High  [ACK]   |
@@ -219,6 +219,12 @@ prohibited.** The same component tree adapts via `isMobile` style tokens.
 | STATUS BAR (28px): mode | polling | tag count                         |
 +-----------------------------------------------------------------------+
 ```
+
+Notes:
+- Header height reduced to 36px on desktop; app title removed (OS window titlebar covers it)
+- FixedControlSlots (vertical) is rendered as a horizontal icon ribbon between the "FIELD NETWORK"
+  header label and the PLC tree, not at the sidebar bottom
+- Sidebar PLC tree shows network info (IP, port, poll rate) rather than live register values
 
 ### 4b. Mobile (< 768px) — Glove-Friendly Industrial Tablet
 

@@ -12,7 +12,6 @@ import {
 } from 'recharts'
 import { useDebugStore } from '../store/useDebugStore'
 import { usePlcStore } from '../store/usePlcStore'
-import { useAlarmStore } from '../store/useAlarmStore'
 import { theme, alarmLevelColor } from '../styles/theme'
 import type { WatchSlot, WatchSlotIndex } from '../types/domain'
 
@@ -45,7 +44,6 @@ function isReadySlot(s: WatchSlot): s is WatchSlot & { address: number; plcId: s
 export const RealtimeTrendChart: React.FC = () => {
   const slots = useDebugStore((s) => s.slots)
   const trendHistory = usePlcStore((s) => s.trendHistory)
-  const thresholds = useAlarmStore((s) => s.thresholds)
 
   // アドレス・plcId が確定しアクティブなスロットのみ抽出（型ガードで null を排除）
   const activeSlots = useMemo(() => slots.filter(isReadySlot), [slots])
@@ -117,49 +115,46 @@ export const RealtimeTrendChart: React.FC = () => {
     )
   }
 
-  // アクティブ信号のアラームしきい値参照線を構築
+  // ウォッチウィンドウでユーザーが入力したしきい値のみを参照線として描画
+  // （useAlarmStore.thresholds は device config 由来の値も含むため使用しない）
   const referenceLines = activeSlots.flatMap((slot) => {
-    const th = thresholds.find(
-      (t) => t.plcId === slot.plcId && t.address === slot.address
-    )
-    if (!th) return []
     const prefix = `${slot.deviceCode}${slot.address}`
-    const lines = []
-    if (th.HH !== undefined)
+    const lines: React.ReactElement[] = []
+    if (slot.thresholdHH !== null)
       lines.push(
         <ReferenceLine
           key={`${slot.index as WatchSlotIndex}-HH`}
-          y={th.HH}
+          y={slot.thresholdHH}
           stroke={alarmLevelColor['HH']}
           strokeDasharray="4 2"
           label={{ value: `${prefix} HH`, fill: alarmLevelColor['HH'], fontSize: 10 }}
         />
       )
-    if (th.H !== undefined)
+    if (slot.thresholdH !== null)
       lines.push(
         <ReferenceLine
           key={`${slot.index as WatchSlotIndex}-H`}
-          y={th.H}
+          y={slot.thresholdH}
           stroke={alarmLevelColor['H']}
           strokeDasharray="4 2"
           label={{ value: `${prefix} H`, fill: alarmLevelColor['H'], fontSize: 10 }}
         />
       )
-    if (th.L !== undefined)
+    if (slot.thresholdL !== null)
       lines.push(
         <ReferenceLine
           key={`${slot.index as WatchSlotIndex}-L`}
-          y={th.L}
+          y={slot.thresholdL}
           stroke={alarmLevelColor['L']}
           strokeDasharray="4 2"
           label={{ value: `${prefix} L`, fill: alarmLevelColor['L'], fontSize: 10 }}
         />
       )
-    if (th.LL !== undefined)
+    if (slot.thresholdLL !== null)
       lines.push(
         <ReferenceLine
           key={`${slot.index as WatchSlotIndex}-LL`}
-          y={th.LL}
+          y={slot.thresholdLL}
           stroke={alarmLevelColor['LL']}
           strokeDasharray="4 2"
           label={{ value: `${prefix} LL`, fill: alarmLevelColor['LL'], fontSize: 10 }}
