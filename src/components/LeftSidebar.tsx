@@ -1,20 +1,19 @@
 import { useState } from 'react'
 import { usePlcStore } from '../store/usePlcStore'
+import { usePlcConfigStore } from '../store/usePlcConfigStore'
 import { theme } from '../styles/theme'
+import { POLLING_INTERVAL_MS } from '../config/plc'
 
 export interface PlcHierarchyNode {
   plcId: string
   label: string
   protocolLabel: string
-  device: string
-  startAddress: number
-  count: number
 }
 
 interface LeftSidebarProps {
   nodes: PlcHierarchyNode[]
-  /** ADR-008: control slots rendered at sidebar bottom (desktop only) */
-  footer?: React.ReactNode
+  /** Icon ribbon rendered between the FIELD NETWORK header and the PLC tree */
+  toolbar?: React.ReactNode
 }
 
 /* ── Status dot ───────────────────────────────────────── */
@@ -64,13 +63,15 @@ const PlcTreeNode: React.FC<PlcTreeNodeProps> = ({ node }) => {
   const [expanded, setExpanded] = useState(true)
 
   const status = usePlcStore((s) => s.connectionStatuses[node.plcId] ?? 'disconnected')
-  const values = usePlcStore((s) => s.values[node.plcId] ?? {})
-  const isConnected = status === 'connected'
+  const config = usePlcConfigStore((s) => s.configs[node.plcId])
 
-  const registers = Array.from({ length: node.count }, (_, i) => ({
-    address: node.startAddress + i,
-    label: `${node.device}${node.startAddress + i}`,
-  }))
+  const infoItems = config
+    ? [
+        { label: 'IP',   value: config.host },
+        { label: 'PORT', value: String(config.port) },
+        { label: 'POLL', value: `${POLLING_INTERVAL_MS}ms` },
+      ]
+    : []
 
   return (
     <div>
@@ -120,57 +121,43 @@ const PlcTreeNode: React.FC<PlcTreeNodeProps> = ({ node }) => {
         </div>
       )}
 
-      {/* Register leaves */}
+      {/* Network info leaves */}
       {expanded &&
-        registers.map(({ address, label }) => {
-          const raw = values[address]
-          return (
-            <div
-              key={address}
+        infoItems.map(({ label, value }) => (
+          <div
+            key={label}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '2px 8px 2px 36px',
+              fontSize: theme.fs.xs,
+              fontFamily: theme.fontMono,
+              color: theme.textMuted,
+            }}
+          >
+            <span
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '2px 8px 2px 36px',
-                fontSize: theme.fs.xs,
-                fontFamily: theme.fontMono,
-                color: theme.textMuted,
+                color: theme.border,
+                marginRight: 6,
+                fontSize: 10,
+                userSelect: 'none',
+                width: 30,
+                flexShrink: 0,
+                letterSpacing: '0.02em',
               }}
             >
-              <span
-                style={{
-                  color: theme.border,
-                  marginRight: 4,
-                  fontSize: 10,
-                  userSelect: 'none',
-                }}
-              >
-                L
-              </span>
-              <span style={{ flex: 1, color: theme.textMuted }}>{label}</span>
-              <span
-                style={{
-                  color: isConnected && raw !== undefined ? theme.normal : theme.border,
-                  fontWeight: 600,
-                  minWidth: 40,
-                  textAlign: 'right',
-                }}
-              >
-                {raw !== undefined ? String(raw) : '---'}
-              </span>
-            </div>
-          )
-        })}
+              {label}
+            </span>
+            <span style={{ color: theme.textMuted }}>{value}</span>
+          </div>
+        ))}
     </div>
   )
 }
 
 /* ── LeftSidebar ──────────────────────────────────────── */
 
-/**
- * PLCネットワーク階層ツリー。
- * ナビゲーションペインとして機能し、接続状態とレジスタ現在値をツリー表示する。
- */
-export const LeftSidebar: React.FC<LeftSidebarProps> = ({ nodes, footer }) => {
+export const LeftSidebar: React.FC<LeftSidebarProps> = ({ nodes, toolbar }) => {
   return (
     <nav
       style={{
@@ -197,13 +184,14 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ nodes, footer }) => {
         FIELD NETWORK
       </div>
 
+      {/* Icon ribbon toolbar */}
+      {toolbar}
+
       <div style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
         {nodes.map((node) => (
           <PlcTreeNode key={node.plcId} node={node} />
         ))}
       </div>
-
-      {footer}
     </nav>
   )
 }
