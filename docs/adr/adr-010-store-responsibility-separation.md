@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-05-24)
+Accepted (2026-05-24) — Phase 1 + Phase 2 implemented (2026-05-25)
 
 ## Context
 
