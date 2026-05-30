@@ -21,7 +21,7 @@ export const MELSEC_CONFIG: PlcConfig = {
 
 export const KEYENCE_CONFIG: PlcConfig = {
   host: envStr('VITE_KEYENCE_HOST', '127.0.0.1'),
-  port: asPortNumber(envInt('VITE_KEYENCE_PORT', 8503)),
+  port: asPortNumber(envInt('VITE_KEYENCE_PORT', 8501)),
   timeoutMs: asTimeoutMs(envInt('VITE_TIMEOUT_MS', 3000)),
 }
 

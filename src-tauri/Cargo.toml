@@ -26,4 +26,5 @@ tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
 native-tls = "0.2"
 thiserror = "1"
+tauri-plugin-dialog = "2"
 

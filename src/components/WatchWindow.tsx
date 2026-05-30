@@ -8,17 +8,41 @@ import { asThresholdValue } from '../types/branded'
 import { theme } from '../styles/theme'
 import { TouchButton } from './TouchButton'
 import type { PlcConfig, WatchSlotIndex } from '../types/domain'
+import { usePlcConfigStore, MELSEC_PLC_ID, KEYENCE_PLC_ID } from '../store/usePlcConfigStore'
 
 interface PendingWrite {
   slotIndex: WatchSlotIndex
   inputValue: string
 }
 
-/** アドレス入力文字列（例 "D1000"）をパースして deviceCode と address を返す。 */
-function parseDeviceAddress(input: string): { deviceCode: string; address: number } | null {
-  const match = input.trim().toUpperCase().match(/^([DMWXYB])(\d+)$/)
-  if (!match) return null
-  return { deviceCode: match[1], address: parseInt(match[2], 10) }
+/** 
+ * アドレス入力文字列（例 "D1000", "DM3000"）をパースして
+ * デバイスコード、アドレス、および対応するPLC IDを自動判定して返す。
+ */
+function parseDeviceAddress(input: string): { deviceCode: string; address: number; plcId: string } | null {
+  const clean = input.trim().toUpperCase()
+
+  // 2文字のデバイス（Keyence: DM, CM, TM）
+  const match2 = clean.match(/^(DM|CM|TM)(\d+)$/)
+  if (match2) {
+    return {
+      deviceCode: match2[1],
+      address: parseInt(match2[2], 10),
+      plcId: KEYENCE_PLC_ID, // 自動的にキーエンスPLCにマッピング
+    }
+  }
+
+  // 1文字のデバイス（Mitsubishi: D, M, W, X, Y, B）
+  const match1 = clean.match(/^([DMWXYB])(\d+)$/)
+  if (match1) {
+    return {
+      deviceCode: match1[1],
+      address: parseInt(match1[2], 10),
+      plcId: MELSEC_PLC_ID, // 自動的に三菱PLCにマッピング
+    }
+  }
+
+  return null
 }
 
 interface WatchWindowProps {
@@ -27,12 +51,10 @@ interface WatchWindowProps {
 }
 
 /**
- * GxWorks3 風デバッグウォッチウィンドウ。
- * isMaintenanceMode = true のときのみ表示される。
- * 現在値は usePlcStore から毎回取得（ADR-005 準拠 — debugStore には値を保持しない）。
- * 閾値は useSignalConfigStore、トレンド設定は useTrendConfigStore で管理（ADR-010）。
+ * デバッグウォッチウィンドウ。
+ * 2文字のキーエンスデバイス名 (DM/CM/TM) にもネイティブ対応。
  */
-export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcId }) => {
+export const WatchWindow: React.FC<WatchWindowProps> = ({ defaultPlcId }) => {
   const isMaintenanceMode = useDebugStore((s) => s.isMaintenanceMode)
   const slots = useDebugStore((s) => s.slots)
   const updateSlot = useDebugStore((s) => s.updateSlot)
@@ -41,9 +63,12 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
   const trendConfigs = useTrendConfigStore((s) => s.configs)
   const setTrendConfig = useTrendConfigStore((s) => s.setTrendConfig)
   const plcValues = usePlcStore((s) => s.values)
-  const { writeMitsubishi } = usePlcWrite()
 
-  // 書き込み中状態（一時的な UI インタラクション — Zustand 不要なローカル state）
+  // グローバルなストアから両方のPLC設定を取得
+  const melsecConfig = usePlcConfigStore((s) => s.configs[MELSEC_PLC_ID])
+  const keyenceConfig = usePlcConfigStore((s) => s.configs[KEYENCE_PLC_ID])
+  const { writeMitsubishi, writeKeyence } = usePlcWrite()
+
   const [pendingWrite, setPendingWrite] = useState<PendingWrite | null>(null)
   const [writeError, setWriteError] = useState<string | null>(null)
   const [addressInputs, setAddressInputs] = useState<Record<number, string>>({})
@@ -54,7 +79,6 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
     setAddressInputs((prev) => ({ ...prev, [index]: raw }))
     const parsed = parseDeviceAddress(raw)
     if (parsed) {
-      // アドレスが変わった場合、旧アドレスのトレンドを非アクティブ化
       const prevSlot = slots.find((s) => s.index === index)
       if (prevSlot?.plcId && prevSlot.address !== null && prevSlot.address !== parsed.address) {
         setTrendConfig(prevSlot.plcId, prevSlot.address, { isActive: false })
@@ -62,10 +86,9 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
       updateSlot(index, {
         address: parsed.address,
         deviceCode: parsed.deviceCode,
-        plcId: defaultPlcId,
+        plcId: parsed.plcId, // 判定された正しいPLC IDをストアに保存
       })
     } else if (raw === '') {
-      // アドレスクリア時にトレンドを非アクティブ化
       const prevSlot = slots.find((s) => s.index === index)
       if (prevSlot?.plcId && prevSlot.address !== null) {
         setTrendConfig(prevSlot.plcId, prevSlot.address, { isActive: false })
@@ -113,7 +136,12 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
       return
     }
     try {
-      await writeMitsubishi(plcConfig, slot.deviceCode, slot.address, [numVal])
+      // 接続先PLCに応じて書き込み先・設定・APIコマンドを動的選択
+      if (slot.plcId === MELSEC_PLC_ID) {
+        await writeMitsubishi(melsecConfig, slot.deviceCode, slot.address, [numVal])
+      } else if (slot.plcId === KEYENCE_PLC_ID) {
+        await writeKeyence(keyenceConfig, slot.deviceCode, slot.address, [numVal])
+      }
       setPendingWrite(null)
       setWriteError(null)
     } catch (err) {
@@ -142,7 +170,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
           Debug Watch Window
         </span>
         <span style={{ color: theme.textMuted, fontSize: theme.fs.sm }}>
-          Target PLC: {defaultPlcId} — Enter D1000 etc. to start monitoring
+          Enter Mitsubishi (e.g. D1000) or Keyence (e.g. DM1000) to start monitoring
         </span>
       </div>
 
@@ -171,7 +199,6 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
         </thead>
         <tbody>
           {slots.map((slot) => {
-            // [公理2] 現在値は usePlcStore から毎回算出 — debugStore に保持しない
             const currentRaw =
               slot.plcId !== null && slot.address !== null
                 ? plcValues[slot.plcId]?.[slot.address]
@@ -182,7 +209,6 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
               addressInputs[slot.index] ??
               (slot.address !== null ? `${slot.deviceCode}${slot.address}` : '')
 
-            // 閾値は useSignalConfigStore から取得（ADR-010 Phase 1）
             const signalConfig =
               slot.plcId && slot.address !== null
                 ? signalConfigs.find(
@@ -190,7 +216,6 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                   )
                 : undefined
 
-            // トレンド設定は useTrendConfigStore から取得（ADR-010 Phase 2）
             const trendConfig =
               slot.plcId && slot.address !== null
                 ? trendConfigs.find(
@@ -218,7 +243,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                     onChange={(e) =>
                       handleAddressChange(slot.index as WatchSlotIndex, e.target.value)
                     }
-                    placeholder="D1000"
+                    placeholder="e.g. DM1000"
                     style={inputStyle}
                   />
                 </td>
@@ -299,7 +324,7 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ plcConfig, defaultPlcI
                         setTrendConfig(slot.plcId, slot.address, { label: e.target.value })
                       }
                     }}
-                    placeholder="Comment (e.g. Line A interlock)"
+                    placeholder="Comment"
                     disabled={slot.address === null}
                     style={{
                       ...inputStyle,

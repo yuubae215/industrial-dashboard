@@ -79,9 +79,8 @@ pub async fn read_devices(
         .map(|s| s.parse::<i32>())
         .collect();
 
-    let values = values.map_err(|_| {
-        PlcError::Protocol(format!("レスポンスのパース失敗: {}", response))
-    })?;
+    let values =
+        values.map_err(|_| PlcError::Protocol(format!("レスポンスのパース失敗: {}", response)))?;
 
     Ok(ReadResult { values })
 }
@@ -127,9 +126,6 @@ pub async fn write_device(
     if response == "OK" {
         Ok(())
     } else {
-        Err(PlcError::Protocol(format!(
-            "書き込みエラー: {}",
-            response
-        )))
+        Err(PlcError::Protocol(format!("書き込みエラー: {}", response)))
     }
 }

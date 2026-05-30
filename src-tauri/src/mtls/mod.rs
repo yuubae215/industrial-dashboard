@@ -46,6 +46,7 @@ pub fn build_client(config: &MtlsConfig) -> Result<Client, MtlsError> {
     Client::builder()
         .identity(identity)
         .danger_accept_invalid_certs(config.accept_invalid_certs)
+        .no_proxy()
         .build()
         .map_err(|e| MtlsError::ClientBuild(e.to_string()))
 }

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { usePlcStore } from '../store/usePlcStore'
+import { useDebugStore } from '../store/useDebugStore' // 👈 追加（ウォッチウィンドウのスロット監視用）
 import type { PlcConfig } from '../types/domain'
 
 interface PollingConfig {
@@ -18,8 +19,7 @@ interface McReadResult {
   values: number[]
 }
 
-// GitHub Pages demo: sinusoidal values centered at 1500 (150.0℃ with scale 0.1)
-// Oscillation ±600 raw (±60℃) crosses the H threshold (2000 = 200℃) at peak
+// デモ環境（GitHub Pages等）用のダミー値生成
 const mockRawValue = (now: number, address: number): number => {
   const phase = (address % 5) * (Math.PI / 5)
   const sine = Math.sin(now / 15000 + phase)
@@ -27,20 +27,15 @@ const mockRawValue = (now: number, address: number): number => {
 }
 
 /**
- * 指定 PLC をポーリングし Zustand ストアへ生値を書き込むカスタムフック。
- * protocol='mitsubishi' -> plc_read_mitsubishi (MC プロトコル 3E バイナリ)
- * protocol='keyence'    -> plc_read_keyence    (上位リンク ASCII TCP)
- *
- * Tauri 環境外（GitHub Pages デモ）では正弦波モックデータを生成する。
+ * 指定 PLC から、ウォッチウィンドウに登録されたアドレスを動的に検出して
+ * 500msごとに自動ポーリングする超強力なカスタムフック。
+ * 
  * [非同期インフラ公準3] setInterval + 非ブロッキング invoke の組み合わせを使用。
  */
 export const usePlcPolling = ({
   plcId,
   config,
   protocol = 'mitsubishi',
-  device = protocol === 'keyence' ? 'DM' : 'D',
-  startAddress,
-  count,
   intervalMs,
   signed = false,
 }: PollingConfig) => {
@@ -51,40 +46,81 @@ export const usePlcPolling = ({
     setConnectionStatus(plcId, 'connecting')
 
     const poll = async () => {
-      // GitHub Pages demo: no Tauri IPC available, generate mock values
+      // 1. ウォッチウィンドウ（useDebugStore）から、このPLC(plcId)に紐づく有効なアドレスをすべて抽出
+      const slots = useDebugStore.getState().slots
+      const activeTargets = slots
+        .filter((s) => s.plcId === plcId && s.address !== null)
+        .map((s) => ({ device: s.deviceCode, address: s.address as number }))
+
+      // 重複するアドレスを排除
+      const uniqueTargets = activeTargets.filter((v, i, a) =>
+        a.findIndex((t) => t.device === v.device && t.address === v.address) === i
+      )
+
+      // もしウォッチウィンドウが完全に空の場合、接続状態灯を維持するためにデフォルトとして1000番地をポーリング
+      const targetsToPoll = uniqueTargets.length > 0 
+        ? uniqueTargets 
+        : [{ device: protocol === 'keyence' ? 'DM' : 'D', address: 1000 }]
+
+      // 🌐 デモ環境（Tauri外）の場合はモックデータを流し込む
       if (!isTauri()) {
         const now = Date.now()
-        const values = Array.from({ length: count }, (_, i) => mockRawValue(now, startAddress + i))
-        updateRawValues(plcId, startAddress, values)
+        targetsToPoll.forEach((target) => {
+          const mockVal = mockRawValue(now, target.address)
+          updateRawValues(plcId, target.address, [mockVal])
+        })
         setConnectionStatus(plcId, 'connected')
         return
       }
 
-      try {
-        const baseArgs = {
-          config: {
-            host: config.host,
-            port: config.port,
-            timeout_ms: config.timeoutMs,
-          },
-          device,
-          headNumber: startAddress,
-          numPoints: count,
-        }
-        const result = await invoke<McReadResult>(
-          protocol === 'keyence' ? 'plc_read_keyence' : 'plc_read_mitsubishi',
-          protocol === 'keyence' ? { ...baseArgs, signed } : baseArgs,
-        )
-        updateRawValues(plcId, startAddress, result.values)
-        setConnectionStatus(plcId, 'connected')
-      } catch (error) {
-        console.error(`[PLC Polling] ${plcId}:`, error)
-        setConnectionStatus(plcId, 'error')
-      }
+      let hasError = false
+
+      // ⚡ 全ターゲット（アドレス）に対して、並列で非ブロッキングにPLC読出要求（invoke）を送信
+      await Promise.all(
+        targetsToPoll.map(async (target) => {
+          try {
+            const baseArgs = {
+              config: {
+                host: config.host,
+                port: config.port,
+                timeout_ms: config.timeoutMs,
+              },
+              device: target.device,
+              headNumber: target.address,
+              numPoints: 1, // 各アドレス1点ずつ精密に読み出す
+            }
+
+            const result = await invoke<McReadResult>(
+              protocol === 'keyence' ? 'plc_read_keyence' : 'plc_read_mitsubishi',
+              protocol === 'keyence' ? { ...baseArgs, signed } : baseArgs,
+            )
+
+            // 取得した値をストアの単一アドレスマップに保存
+            updateRawValues(plcId, target.address, result.values)
+          } catch (error) {
+            console.error(`[PLC Dynamic Polling Error] ${plcId} ${target.device}${target.address}:`, error)
+            hasError = true
+          }
+        })
+      )
+
+      // 通信エラーが1件でもあれば「エラー」、全件成功なら「接続完了」ステータスにする
+      setConnectionStatus(plcId, hasError ? 'error' : 'connected')
     }
 
+    // 初回実行と定期実行のセットアップ
     poll()
     const timerId = setInterval(poll, intervalMs)
     return () => clearInterval(timerId)
-  }, [plcId, config.host, config.port, config.timeoutMs, protocol, device, startAddress, count, intervalMs, signed, updateRawValues, setConnectionStatus])
+  }, [
+    plcId, 
+    config.host, 
+    config.port, 
+    config.timeoutMs, 
+    protocol, 
+    intervalMs, 
+    signed, 
+    updateRawValues, 
+    setConnectionStatus
+  ])
 }

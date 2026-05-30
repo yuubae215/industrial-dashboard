@@ -2,8 +2,8 @@ mod config;
 mod mtls;
 mod plc;
 
-use plc::{keyence, mitsubishi, PlcConfig, ReadResult};
 use mtls::MtlsConfig;
+use plc::{keyence, mitsubishi, PlcConfig, ReadResult};
 
 // ── PLC コマンド ───────────────────────────────────────────────────────────
 
@@ -137,7 +137,9 @@ async fn mtls_post(
         accept_invalid_certs,
     };
     let client = mtls::build_client(&config).map_err(|e| e.to_string())?;
-    mtls::post(&client, &url, &body).await.map_err(|e| e.to_string())
+    mtls::post(&client, &url, &body)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ── エントリポイント ──────────────────────────────────────────────────────
@@ -145,6 +147,7 @@ async fn mtls_post(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             plc_read_mitsubishi,

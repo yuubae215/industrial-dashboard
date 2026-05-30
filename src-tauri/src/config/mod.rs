@@ -84,19 +84,15 @@ pub fn load() -> Result<DeviceConfig, String> {
             signals: vec![],
         });
     }
-    let json = fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read config: {e}"))?;
-    serde_json::from_str(&json)
-        .map_err(|e| format!("Failed to parse config: {e}"))
+    let json = fs::read_to_string(&path).map_err(|e| format!("Failed to read config: {e}"))?;
+    serde_json::from_str(&json).map_err(|e| format!("Failed to parse config: {e}"))
 }
 
 pub fn save(config: &DeviceConfig) -> Result<(), String> {
     let dir = config_dir();
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("Failed to create config dir: {e}"))?;
+    fs::create_dir_all(&dir).map_err(|e| format!("Failed to create config dir: {e}"))?;
     let json = serde_json::to_string_pretty(config)
         .map_err(|e| format!("Failed to serialize config: {e}"))?;
-    fs::write(config_path(), json)
-        .map_err(|e| format!("Failed to write config: {e}"))?;
+    fs::write(config_path(), json).map_err(|e| format!("Failed to write config: {e}"))?;
     Ok(())
 }
