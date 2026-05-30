@@ -54,7 +54,7 @@ interface WatchWindowProps {
  * デバッグウォッチウィンドウ。
  * 2文字のキーエンスデバイス名 (DM/CM/TM) にもネイティブ対応。
  */
-export const WatchWindow: React.FC<WatchWindowProps> = ({ defaultPlcId }) => {
+export const WatchWindow: React.FC<WatchWindowProps> = ({ defaultPlcId: _defaultPlcId }) => {
   const isMaintenanceMode = useDebugStore((s) => s.isMaintenanceMode)
   const slots = useDebugStore((s) => s.slots)
   const updateSlot = useDebugStore((s) => s.updateSlot)

@@ -22,7 +22,7 @@ interface ApiTestState {
 
 export const useApiTestStore = create<ApiTestState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       p12Path: '',
       url: '',
       endpoints: [],
