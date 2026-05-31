@@ -41,7 +41,7 @@ The 4 fixed slots are assigned the following permanent, application-level roles:
 
 | Slot | ADR-004 Generic Role | Application Role | Notes |
 |------|----------------------|------------------|-------|
-| 0 (leftmost) | Cancel / Back | **BACK** | Reserved; always disabled in v1 |
+| 0 (leftmost) | Cancel / Back | **CONNECT / DISCONNECT** | Toggles all-PLC polling; formerly BACK (reserved in v1) |
 | 1 | Context action A | **SETTINGS** | Opens `ConnectionSettings` modal |
 | 2 | Context action B | **TREND** | Toggles `RealtimeTrendChart` visibility |
 | 3 (rightmost) | Confirm / Execute | **MAINTENANCE** | Toggles `isMaintenanceMode` in `useDebugStore` |
@@ -76,7 +76,7 @@ PLC tree, replacing the original text-button vertical stack at the sidebar botto
 ┌──────────┬──────────────────────────────┬───────────┐
 │ FIELD    │         MAIN CONTENT         │  ACTIVE   │
 │ NETWORK  │                              │  ALARMS   │
-│ ⬅ ⚙ 📈 🔧 │  RealtimeTrendChart          │           │
+│ ▶ ⚙ 📈 🔧 │  RealtimeTrendChart          │           │
 │ ──────── │  WatchWindow                 │           │
 │ MELSEC   │                              │           │
 │  IP/Port │                              │           │
@@ -108,7 +108,7 @@ Breakpoint: `window.innerWidth < 768px`. On mobile:
 ├─────────────────────────────────────────────────┤
 │  ACTIVE ALARMS (140px, scrollable)              │
 ├─────────────────────────────────────────────────┤
-│ [BACK] [SETTINGS] [TREND] [MAINT]               │
+│ [CONNECT] [SETTINGS] [TREND] [MAINT]            │
 └─────────────────────────────────────────────────┘
 ```
 

@@ -20,15 +20,24 @@ import { TouchButton } from './TouchButton'
 interface FixedControlSlotsProps {
   layout: 'horizontal' | 'vertical'
   isTrendVisible: boolean
+  isConnected: boolean
+  onConnect: () => void
+  onDisconnect: () => void
   onTrendToggle: () => void
   onSettingsOpen: () => void
 }
 
 /* ── Desktop icon SVGs ────────────────────────────────── */
 
-const IconBack = () => (
-  <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="10,3 5,8 10,13" />
+const IconConnect = () => (
+  <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+    <polygon points="3,2 14,8 3,14" />
+  </svg>
+)
+
+const IconDisconnect = () => (
+  <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+    <rect x="3" y="3" width="10" height="10" />
   </svg>
 )
 
@@ -120,6 +129,9 @@ const IconButton: React.FC<IconButtonProps> = ({
 export const FixedControlSlots: React.FC<FixedControlSlotsProps> = ({
   layout,
   isTrendVisible,
+  isConnected,
+  onConnect,
+  onDisconnect,
   onTrendToggle,
   onSettingsOpen,
 }) => {
@@ -139,8 +151,14 @@ export const FixedControlSlots: React.FC<FixedControlSlotsProps> = ({
         }}
         data-slot-layout={layout}
       >
-        {/* Slot 0: BACK — reserved, always disabled */}
-        <IconButton icon={<IconBack />} title="Back (reserved)" disabled onClick={() => {}} />
+        {/* Slot 0: CONNECT / DISCONNECT */}
+        <IconButton
+          icon={isConnected ? <IconDisconnect /> : <IconConnect />}
+          title={isConnected ? 'Disconnect all PLCs' : 'Connect all PLCs'}
+          active={isConnected}
+          activeColor={isConnected ? theme.critical : theme.normal}
+          onClick={isConnected ? onDisconnect : onConnect}
+        />
 
         {/* Slot 1: SETTINGS */}
         <IconButton
@@ -186,8 +204,12 @@ export const FixedControlSlots: React.FC<FixedControlSlotsProps> = ({
       }}
       data-slot-layout={layout}
     >
-      {/* Slot 0: BACK — reserved, always disabled */}
-      <TouchButton label="<- Back" disabled onClick={() => {}} />
+      {/* Slot 0: CONNECT / DISCONNECT */}
+      <TouchButton
+        label={isConnected ? 'DISCONN' : 'CONNECT'}
+        variant={isConnected ? 'critical' : 'normal'}
+        onClick={isConnected ? onDisconnect : onConnect}
+      />
 
       {/* Slot 1: SETTINGS */}
       <TouchButton label="Settings" variant="ghost" onClick={onSettingsOpen} />
