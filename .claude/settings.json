@@ -24,5 +24,18 @@
       "Bash(cat:*)",
       "Bash(pkg-config:*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const p=process.env.TOOL_INPUT_PATH||'';const triggers=['src/store/','src/types/domain.ts','src-tauri/src/lib.rs','src/components/Dashboard','src/hooks/useIsMobile'];const hit=triggers.some(t=>p.includes(t));if(hit)process.stderr.write('\\n[doc-maintain] Co-commit trigger detected: '+p+'\\nRun /doc-maintain before committing to keep docs in sync.\\n');\""
+          }
+        ]
+      }
+    ]
   }
 }
