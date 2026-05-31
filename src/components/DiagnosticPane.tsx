@@ -270,7 +270,7 @@ export const DiagnosticPane: React.FC<DiagnosticPaneProps> = ({
         )}
 
         {activeTab === 'WATCH' && (
-          <div style={{ height: '100%', overflow: 'hidden' }}>
+          <div style={{ height: '100%' }}>
             {plcConfig && defaultPlcId ? (
               <WatchWindow plcConfig={plcConfig} defaultPlcId={defaultPlcId} />
             ) : (

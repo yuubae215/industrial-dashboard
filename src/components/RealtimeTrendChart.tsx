@@ -15,6 +15,7 @@ import { useSignalConfigStore } from '../store/useSignalConfigStore'
 import { useTrendConfigStore } from '../store/useTrendConfigStore'
 import { usePlcStore } from '../store/usePlcStore'
 import { theme, alarmLevelColor } from '../styles/theme'
+import { POLLING_INTERVAL_MS } from '../config/plc'
 import type { WatchSlotIndex } from '../types/domain'
 
 const WINDOW_SECONDS = 60
@@ -63,14 +64,18 @@ export const RealtimeTrendChart: React.FC = () => {
     const keys = activeSlots.map((s) => `${s.deviceCode}${s.address}`)
 
     // タイムスタンプ → 各信号の値マップを構築
+    // 各アドレスは独立してポーリングされるため数ms のズレが生じる。
+    // ポーリング周期単位に丸めることで複数信号を同じ行に収める。
+    const bucket = (ts: number) => Math.round(ts / POLLING_INTERVAL_MS) * POLLING_INTERVAL_MS
     const tsMap = new Map<number, Record<string, number>>()
     activeSlots.forEach((slot, i) => {
       const points = trendHistory[slot.plcId!]?.[slot.address!] ?? []
       const key = keys[i]
       points.forEach((pt) => {
-        const row = tsMap.get(pt.timestamp) ?? {}
+        const ts = bucket(pt.timestamp)
+        const row = tsMap.get(ts) ?? {}
         row[key] = pt.value
-        tsMap.set(pt.timestamp, row)
+        tsMap.set(ts, row)
       })
     })
 
@@ -206,6 +211,7 @@ export const RealtimeTrendChart: React.FC = () => {
                 stroke={LINE_COLORS[i % LINE_COLORS.length]}
                 dot={false}
                 strokeWidth={1.5}
+                connectNulls
                 // isAnimationActive=false 必須 — 500ms 更新でアニメーションが連続発火し CPU を消耗する
                 isAnimationActive={false}
               />
