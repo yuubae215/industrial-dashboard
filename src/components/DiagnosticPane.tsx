@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useAlarmStore } from '../store/useAlarmStore'
 import { ALARM_SEVERITY } from '../types/domain'
-import type { AlarmLevel } from '../types/domain'
+import type { AlarmLevel, PlcConfig } from '../types/domain'
 import { theme, alarmLevelColor } from '../styles/theme'
 import { TouchButton } from './TouchButton'
+import { PanelHeader } from './PanelHeader'
+import { WatchWindow } from './WatchWindow'
 
-type PaneTab = 'ALARMS' | 'OUTPUT'
+type PaneTab = 'ALARMS' | 'OUTPUT' | 'WATCH'
 
 const levelLabel: Record<AlarmLevel, string> = {
   HH: 'High-High',
@@ -16,9 +18,17 @@ const levelLabel: Record<AlarmLevel, string> = {
 
 interface DiagnosticPaneProps {
   isMobile?: boolean
+  height?: number
+  plcConfig?: PlcConfig
+  defaultPlcId?: string
 }
 
-export const DiagnosticPane: React.FC<DiagnosticPaneProps> = ({ isMobile }) => {
+export const DiagnosticPane: React.FC<DiagnosticPaneProps> = ({
+  isMobile,
+  height,
+  plcConfig,
+  defaultPlcId,
+}) => {
   const [activeTab, setActiveTab] = useState<PaneTab>('ALARMS')
   const entries = useAlarmStore((s) => s.entries)
   const acknowledgeAlarm = useAlarmStore((s) => s.acknowledgeAlarm)
@@ -35,7 +45,7 @@ export const DiagnosticPane: React.FC<DiagnosticPaneProps> = ({ isMobile }) => {
     [entries],
   )
 
-  const paneHeight = isMobile ? 160 : 200
+  const paneHeight = height ?? (isMobile ? 160 : 200)
   const hasAlarms = activeAlarms.length > 0
 
   return (
@@ -51,6 +61,8 @@ export const DiagnosticPane: React.FC<DiagnosticPaneProps> = ({ isMobile }) => {
         minWidth: 0,
       }}
     >
+      <PanelHeader title="PROBLEMS" isMobile={isMobile} />
+
       {/* IDE-style tab bar */}
       <div
         style={{
@@ -63,7 +75,7 @@ export const DiagnosticPane: React.FC<DiagnosticPaneProps> = ({ isMobile }) => {
           background: theme.bg,
         }}
       >
-        {(['ALARMS', 'OUTPUT'] as PaneTab[]).map((tab) => {
+        {(['ALARMS', 'OUTPUT', 'WATCH'] as PaneTab[]).map((tab) => {
           const isActive = activeTab === tab
           const tabAccent =
             tab === 'ALARMS' && hasAlarms ? theme.critical : theme.accent
@@ -254,6 +266,25 @@ export const DiagnosticPane: React.FC<DiagnosticPaneProps> = ({ isMobile }) => {
               <span style={{ color: theme.accent }}>{'>'}</span> PLC polling
               active &mdash; MELSEC MC Protocol 3E / Keyence Upper Link
             </div>
+          </div>
+        )}
+
+        {activeTab === 'WATCH' && (
+          <div style={{ height: '100%', overflow: 'hidden' }}>
+            {plcConfig && defaultPlcId ? (
+              <WatchWindow plcConfig={plcConfig} defaultPlcId={defaultPlcId} />
+            ) : (
+              <div
+                style={{
+                  padding: '16px',
+                  color: theme.textMuted,
+                  fontSize: theme.fs.xs,
+                  fontFamily: theme.fontMono,
+                }}
+              >
+                No PLC configuration available.
+              </div>
+            )}
           </div>
         )}
       </div>

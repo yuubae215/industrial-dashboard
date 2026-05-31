@@ -211,33 +211,39 @@ prohibited.** The same component tree adapts via `isMobile` style tokens.
 ### 4a. Desktop (≥ 768px) — IDE High-Density Engine Memory
 
 ```
-+-----------------------------------------------------------------------+
-| MENU BAR (28px) [Project][View][Online][Tools]  MELSEC•  KV•         |
-+-----------------------------------------------------------------------+
-| HEADER (36px)  MC Protocol 3E — 500ms               HH:MM:SS        |
-+------------+--------------------------------------------------+
-| LEFT       |         MAIN CONTENT                             |
-| SIDEBAR    |                                                  |
-| FIELD      |  RealtimeTrendChart / WatchWindow                |
-| NETWORK    |                                                  |
-| [⬅][⚙][📈][🔧]  ← icon ribbon toolbar (horizontal, 28px)       |
-| ---------- |                                                  |
-| PLC Tree   |                                                  |
-| (IP/Port   |                                                  |
-|  info)     |                                                  |
-+------------+--------------------------------------------------+
-| DIAGNOSTIC PANE (200px) [ALARMS] [OUTPUT]  — IDE Output window |
-| HH 14:22:01  melsec-line-a D1000 = 2510 — High-High  [ACK]   |
-+-----------------------------------------------------------------------+
-| STATUS BAR (28px): mode | polling | tag count                         |
-+-----------------------------------------------------------------------+
++-------------------------------------------------------------------------+
+| MENU BAR (28px) [Project][View][Online][Tools]      MELSEC•  KV•       |
++-------------------------------------------------------------------------+
+| TOOLBAR (28px) [CONNECT ▶][DISCONNECT ⏹] | [TREND][SETTINGS] | 500ms  |
++----+---------------+----------------------------------+-----------------+
+| A  | ▼ FIELD NET.  |  MAIN WORKSPACE                  | ▼ ACTIVE ALARMS |
+| c  | --------------|  (RealtimeTrendChart              | ----------------|
+| t  | > MELSEC      |   when Trend is enabled,         | alarm cards     |
+| B  | > Keyence KV  |   else empty-state hint)         | [ACK] buttons   |
+| a  |               |                                  |                 |
+| r  | 220px ←drag→  |  flex:1, overflowY:auto          | 260px           |
+| (40px)            |                                  |                 |
++----+---------------+----------------------------------+-----------------+
+↕ drag (horizontal splitter)
++-------------------------------------------------------------------------+
+| ▼ PROBLEMS  [ALARMS●][OUTPUT][WATCH]  — IDE bottom pane (200px)        |
+| (ALARMS tab: alarm table; OUTPUT tab: console; WATCH tab: WatchWindow) |
++-------------------------------------------------------------------------+
+| STATUS BAR (28px): mode | polling | tag count                           |
++-------------------------------------------------------------------------+
 ```
 
 Notes:
-- Header height reduced to 36px on desktop; app title removed (OS window titlebar covers it)
+- **ActivityBar** (40px far-left strip): icon buttons to switch sidebar view (Explorer/Network/Alarms)
+- **Toolbar** (28px): explicit CONNECT/DISCONNECT buttons — polling does NOT start automatically.
+  Opening the app shows all PLCs as DISCONNECTED until the operator clicks CONNECT.
+- **ResizableSplitters** (4px): draggable between left-sidebar/main, main/right-sidebar, and above
+  DiagnosticPane. Clamped ranges: left 120–400px, right 160–500px, diag 80–400px.
+- **WatchWindow** moved to DiagnosticPane WATCH tab — no longer in the main content area.
 - FixedControlSlots (vertical) is rendered as a horizontal icon ribbon between the "FIELD NETWORK"
-  header label and the PLC tree, not at the sidebar bottom
-- Sidebar PLC tree shows network info (IP, port, poll rate) rather than live register values
+  panel header and the PLC tree, for secondary toolbar actions.
+- Sidebar PLC tree shows network info (IP, port, poll rate) rather than live register values.
+- Header height reduced to 36px on desktop; app title removed (OS window titlebar covers it).
 
 ### 4b. Mobile (< 768px) — Glove-Friendly Industrial Tablet
 
@@ -248,7 +254,7 @@ Notes:
 | MAIN CONTENT AREA (flex: 1, overflowY: auto, internal scroll)        |
 |   WatchWindow / RealtimeTrendChart                                    |
 +-----------------------------------------------------------------------+
-| DIAGNOSTIC PANE (160px) [ALARMS] [OUTPUT]  — tabbed bottom pane     |
+| DIAGNOSTIC PANE (160px) [ALARMS] [OUTPUT] [WATCH]  — tabbed pane    |
 +-----------------------------------------------------------------------+
 | FIXED FOOTER SLOTS (64px, 4-col grid — each ≥ 44px touch target)    |
 | [<- Back (disabled)] [Settings] [Trend] [Maintenance]                |

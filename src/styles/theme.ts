@@ -15,6 +15,10 @@ export const theme = {
     flow:    '#10B981',
     generic: '#64748B',
   },
+  activityBar:    '#080A10',
+  toolbar:        '#0A0C16',
+  panelHeader:    '#0C0F1B',
+  splitterActive: '#334155',
   fontMono: "'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace",
   touchMin: 48,
   // Modular type scale — base 13, ratio ~1.25 (Major Third)

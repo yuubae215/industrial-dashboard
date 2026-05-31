@@ -4,6 +4,7 @@ import { ALARM_SEVERITY } from '../types/domain'
 import type { AlarmLevel } from '../types/domain'
 import { theme, alarmLevelColor } from '../styles/theme'
 import { TouchButton } from './TouchButton'
+import { PanelHeader } from './PanelHeader'
 
 const levelLabel: Record<AlarmLevel, string> = {
   HH: 'High-High',
@@ -13,10 +14,11 @@ const levelLabel: Record<AlarmLevel, string> = {
 }
 
 interface RightSidebarProps {
+  width?: number
   style?: React.CSSProperties
 }
 
-export const RightSidebar: React.FC<RightSidebarProps> = ({ style }) => {
+export const RightSidebar: React.FC<RightSidebarProps> = ({ width = 260, style }) => {
   const entries = useAlarmStore((s) => s.entries)
   const acknowledgeAlarm = useAlarmStore((s) => s.acknowledgeAlarm)
 
@@ -37,7 +39,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ style }) => {
   return (
     <aside
       style={{
-        width: 300,
+        width,
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -47,45 +49,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ style }) => {
         ...style,
       }}
     >
-      {/* Panel header */}
-      <div
-        style={{
-          padding: '9px 14px',
-          borderBottom: `1px solid ${hasAlarms ? theme.critical : theme.border}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            fontSize: theme.fs.xs,
-            fontWeight: 700,
-            letterSpacing: '0.12em',
-            color: hasAlarms ? theme.critical : theme.textMuted,
-          }}
-        >
-          ACTIVE ALARMS
-        </span>
-        {hasAlarms && (
-          <span
-            style={{
-              background: theme.critical,
-              color: '#0F1114',
-              fontSize: theme.fs.xs,
-              fontWeight: 700,
-              padding: '1px 6px',
-              borderRadius: 10,
-              minWidth: 18,
-              textAlign: 'center',
-              fontFamily: theme.fontMono,
-            }}
-          >
-            {activeAlarms.length}
-          </span>
-        )}
-      </div>
+      <PanelHeader
+        title="ACTIVE ALARMS"
+        badge={activeAlarms.length}
+        badgeColor={theme.critical}
+      />
 
       {/* Alarm list */}
       <div style={{ flex: 1, overflowY: 'auto' }}>

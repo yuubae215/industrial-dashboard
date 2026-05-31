@@ -13,6 +13,7 @@ interface PollingConfig {
   count: number
   intervalMs: number
   signed?: boolean
+  enabled?: boolean
 }
 
 interface McReadResult {
@@ -38,11 +39,17 @@ export const usePlcPolling = ({
   protocol = 'mitsubishi',
   intervalMs,
   signed = false,
+  enabled = false,
 }: PollingConfig) => {
   const updateRawValues = usePlcStore((state) => state.updateRawValues)
   const setConnectionStatus = usePlcStore((state) => state.setConnectionStatus)
 
   useEffect(() => {
+    if (!enabled) {
+      setConnectionStatus(plcId, 'disconnected')
+      return
+    }
+
     setConnectionStatus(plcId, 'connecting')
 
     const poll = async () => {
@@ -113,14 +120,15 @@ export const usePlcPolling = ({
     const timerId = setInterval(poll, intervalMs)
     return () => clearInterval(timerId)
   }, [
-    plcId, 
-    config.host, 
-    config.port, 
-    config.timeoutMs, 
-    protocol, 
-    intervalMs, 
-    signed, 
-    updateRawValues, 
-    setConnectionStatus
+    plcId,
+    config.host,
+    config.port,
+    config.timeoutMs,
+    protocol,
+    intervalMs,
+    signed,
+    enabled,
+    updateRawValues,
+    setConnectionStatus,
   ])
 }
