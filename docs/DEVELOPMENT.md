@@ -219,6 +219,47 @@ Full procedure: [ADR-006](./adr/adr-006-yellow-red-card-governance.md)
 
 ---
 
+## 11. Documentation Maintainer: `/doc-maintain`
+
+The `/doc-maintain` command automates the co-commit documentation obligations defined in CLAUDE.md.
+Run it after making code changes and before committing.
+
+### Development flow
+
+```
+1. /adr-validate     — pre-implementation compliance check (existing command)
+2. implement changes
+3. /doc-maintain     — sync documentation to code (this command)
+4. git add src/ docs/ — always commit docs and implementation together
+5. git commit
+```
+
+### What it does
+
+| Step | Action |
+|---|---|
+| Diff analysis | Runs `git diff HEAD` and classifies changed files against co-commit trigger rules |
+| T1: STATE_TRANSITIONS | Updates `docs/STATE_TRANSITIONS.md` when store fields, state machines, or data flow paths change |
+| T2: ARCHITECTURE | Updates `docs/ARCHITECTURE.md` when layer topology, Tauri commands, or layout rules change |
+| T3: Yellow card scan | Checks diff for YC-001 and YC-002 patterns; increments counts in `docs/governance/yellow-cards.md` |
+| T4: Escalation | When count reaches 3, adds a prohibition to the relevant `docs/contracts/*.md` |
+| T5: CLAUDE.md | Adds the escalated pattern to the "Absolute Prohibitions" section of `CLAUDE.md` |
+| Report | Outputs a summary of all documents updated and yellow card status |
+
+### PostToolUse sentinel
+
+A PostToolUse hook in `.claude/settings.json` automatically prints a reminder message when
+Claude Code edits co-commit-trigger files (`src/store/`, `src/types/domain.ts`,
+`src-tauri/src/lib.rs`, `src/components/Dashboard`, `src/hooks/useIsMobile`).
+The hook is a **reminder only** — it does not modify any documentation.
+
+### Maintaining the command itself
+
+When adding new co-commit rules to `CLAUDE.md`, update `.claude/commands/doc-maintain.md`
+(Step 2 trigger table + Step 4 handler) in the same commit as the CLAUDE.md change.
+
+---
+
 ## Related Documents
 
 | Document | Role |
