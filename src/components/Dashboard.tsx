@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { usePlcPolling } from '../hooks/usePlcPolling'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useAlarmMonitor } from '../store/useAlarmStore'
@@ -6,14 +6,17 @@ import { useAlarmStore } from '../store/useAlarmStore'
 import { usePlcConfigStore, MELSEC_PLC_ID, KEYENCE_PLC_ID } from '../store/usePlcConfigStore'
 import { useDeviceConfig } from '../hooks/useDeviceConfig'
 import { RealtimeTrendChart } from './RealtimeTrendChart'
-import { WatchWindow } from './WatchWindow'
 import { LeftSidebar } from './LeftSidebar'
 import type { PlcHierarchyNode } from './LeftSidebar'
+import { RightSidebar } from './RightSidebar'
 import { FixedControlSlots } from './FixedControlSlots'
 import { DiagnosticPane } from './DiagnosticPane'
 import { StatusBar } from './StatusBar'
 import { ConnectionSettings } from './ConnectionSettings'
 import { MenuBar } from './MenuBar'
+import { ActivityBar } from './ActivityBar'
+import { Toolbar } from './Toolbar'
+import { ResizableSplitter } from './ResizableSplitter'
 import { theme } from '../styles/theme'
 import { POLLING_INTERVAL_MS } from '../config/plc'
 
@@ -72,7 +75,24 @@ export const Dashboard: React.FC = () => {
   const [isTrendVisible, setIsTrendVisible] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isApiTestOpen, setIsApiTestOpen] = useState(false)
+  const [isPollingActive, setIsPollingActive] = useState(false)
+  const [activityView, setActivityView] = useState('explorer')
+  const [leftWidth, setLeftWidth] = useState(220)
+  const [rightWidth, setRightWidth] = useState(260)
+  const [diagHeight, setDiagHeight] = useState(200)
   const isMobile = useIsMobile()
+
+  const handleResizeLeft = useCallback((delta: number) => {
+    setLeftWidth((w) => Math.max(120, Math.min(400, w + delta)))
+  }, [])
+
+  const handleResizeRight = useCallback((delta: number) => {
+    setRightWidth((w) => Math.max(160, Math.min(500, w - delta)))
+  }, [])
+
+  const handleResizeDiag = useCallback((delta: number) => {
+    setDiagHeight((h) => Math.max(80, Math.min(400, h - delta)))
+  }, [])
 
   const melsecConfig = usePlcConfigStore((s) => s.configs[MELSEC_ID])
   const keyenceConfig = usePlcConfigStore((s) => s.configs[KEYENCE_ID])
@@ -89,6 +109,7 @@ export const Dashboard: React.FC = () => {
     startAddress: START_ADDRESS,
     count: READ_COUNT,
     intervalMs: INTERVAL_MS,
+    enabled: isPollingActive,
   })
   usePlcPolling({
     plcId: KEYENCE_ID,
@@ -98,6 +119,7 @@ export const Dashboard: React.FC = () => {
     startAddress: START_ADDRESS,
     count: READ_COUNT,
     intervalMs: INTERVAL_MS,
+    enabled: isPollingActive,
   })
 
   const currentTime = useCurrentTime()
@@ -116,6 +138,18 @@ export const Dashboard: React.FC = () => {
     >
       {/* ── GX Works-style IDE menu bar — desktop only (28px) ─── */}
       {!isMobile && <MenuBar />}
+
+      {/* ── Toolbar — desktop only (28px) ───────────────────── */}
+      {!isMobile && (
+        <Toolbar
+          isPollingActive={isPollingActive}
+          onConnect={() => setIsPollingActive(true)}
+          onDisconnect={() => setIsPollingActive(false)}
+          onSettingsOpen={() => setIsSettingsOpen(true)}
+          isTrendVisible={isTrendVisible}
+          onTrendToggle={() => setIsTrendVisible((v) => !v)}
+        />
+      )}
 
       {/* ── Title bar / Header ───────────────────────────────── */}
       <header
@@ -225,8 +259,14 @@ export const Dashboard: React.FC = () => {
       {/* ── Body ── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {!isMobile && (
+          <ActivityBar activeView={activityView} onViewChange={setActivityView} />
+        )}
+
+        {!isMobile && (
           <LeftSidebar
             nodes={PLC_NODES}
+            width={leftWidth}
+            isMobile={isMobile}
             toolbar={
               <FixedControlSlots
                 layout="vertical"
@@ -238,6 +278,14 @@ export const Dashboard: React.FC = () => {
           />
         )}
 
+        {!isMobile && (
+          <ResizableSplitter
+            orientation="vertical"
+            onResize={handleResizeLeft}
+            isMobile={isMobile}
+          />
+        )}
+
         <main
           style={{
             flex: 1,
@@ -246,6 +294,7 @@ export const Dashboard: React.FC = () => {
             display: 'flex',
             flexDirection: 'column',
             gap: 16,
+            minWidth: 0,
           }}
         >
           {isTrendVisible && (
@@ -255,7 +304,7 @@ export const Dashboard: React.FC = () => {
                   REALTIME TREND
                 </span>
                 <span style={{ fontSize: theme.fs.xs, color: theme.textMuted }}>
-                  Watch Window active signals &mdash; last 60s
+                  Active signals — last 60s
                 </span>
                 <div style={{ flex: 1, height: 1, background: theme.border }} />
               </div>
@@ -263,12 +312,57 @@ export const Dashboard: React.FC = () => {
             </section>
           )}
 
-          <WatchWindow plcConfig={melsecConfig} defaultPlcId={MELSEC_ID} />
+          {!isTrendVisible && (
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                gap: 8,
+                color: theme.textMuted,
+                fontSize: theme.fs.sm,
+                fontFamily: theme.fontMono,
+                letterSpacing: '0.06em',
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.2" opacity={0.3}>
+                <polyline points="2,18 8,10 13,14 20,4" />
+                <line x1="2" y1="22" x2="22" y2="22" />
+              </svg>
+              <span style={{ opacity: 0.5 }}>Click TREND in the toolbar to show realtime chart</span>
+            </div>
+          )}
         </main>
+
+        {!isMobile && (
+          <ResizableSplitter
+            orientation="vertical"
+            onResize={handleResizeRight}
+            isMobile={isMobile}
+          />
+        )}
+
+        {!isMobile && (
+          <RightSidebar width={rightWidth} />
+        )}
       </div>
 
       {/* ── Diagnostic pane ─── */}
-      <DiagnosticPane isMobile={isMobile} />
+      {!isMobile && (
+        <ResizableSplitter
+          orientation="horizontal"
+          onResize={handleResizeDiag}
+          isMobile={isMobile}
+        />
+      )}
+      <DiagnosticPane
+        isMobile={isMobile}
+        height={isMobile ? undefined : diagHeight}
+        plcConfig={melsecConfig}
+        defaultPlcId={MELSEC_ID}
+      />
 
       {/* ── Footer / Status bar ── */}
       {isMobile ? (

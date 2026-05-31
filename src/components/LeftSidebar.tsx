@@ -3,6 +3,7 @@ import { usePlcStore } from '../store/usePlcStore'
 import { usePlcConfigStore } from '../store/usePlcConfigStore'
 import { theme } from '../styles/theme'
 import { POLLING_INTERVAL_MS } from '../config/plc'
+import { PanelHeader } from './PanelHeader'
 
 export interface PlcHierarchyNode {
   plcId: string
@@ -12,8 +13,9 @@ export interface PlcHierarchyNode {
 
 interface LeftSidebarProps {
   nodes: PlcHierarchyNode[]
-  /** Icon ribbon rendered between the FIELD NETWORK header and the PLC tree */
   toolbar?: React.ReactNode
+  isMobile?: boolean
+  width?: number
 }
 
 /* ── Status dot ───────────────────────────────────────── */
@@ -157,11 +159,11 @@ const PlcTreeNode: React.FC<PlcTreeNodeProps> = ({ node }) => {
 
 /* ── LeftSidebar ──────────────────────────────────────── */
 
-export const LeftSidebar: React.FC<LeftSidebarProps> = ({ nodes, toolbar }) => {
+export const LeftSidebar: React.FC<LeftSidebarProps> = ({ nodes, toolbar, isMobile, width = 220 }) => {
   return (
     <nav
       style={{
-        width: 220,
+        width,
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -170,19 +172,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ nodes, toolbar }) => {
         overflow: 'hidden',
       }}
     >
-      {/* Root: Field Network */}
-      <div
-        style={{
-          padding: '10px 12px 6px',
-          fontSize: theme.fs.xs,
-          fontWeight: 700,
-          color: theme.textMuted,
-          letterSpacing: '0.12em',
-          borderBottom: `1px solid ${theme.border}`,
-        }}
-      >
-        FIELD NETWORK
-      </div>
+      <PanelHeader title="FIELD NETWORK" isMobile={isMobile} />
 
       {/* Icon ribbon toolbar */}
       {toolbar}
