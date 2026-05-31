@@ -41,6 +41,32 @@ The `disabled` state of fixed-slot control buttons is derived from `ConnectionSt
 
 ---
 
+## 1b. Polling Enable State (per-device)
+
+`Dashboard.tsx` holds `pollingStates: Record<string, boolean>` as local React state (not Zustand):
+
+```
+pollingStates = {
+  'melsec-line-a': false,   // MELSEC ポーリング有効フラグ
+  'kv-line-b':     false,   // Keyence ポーリング有効フラグ
+}
+```
+
+This is separate from `connectionStatuses` (which reflects the Rust-side TCP result):
+- `pollingStates[plcId] = true` → `usePlcPolling` hook is enabled → sets status to `'connecting'`, then `'connected'` or `'error'`
+- `pollingStates[plcId] = false` → hook is disabled → status forced to `'disconnected'`
+
+Mutation points:
+- `handleConnectAll()` — sets all entries to `true` (Toolbar CONNECT / FixedControlSlots Slot 0)
+- `handleDisconnectAll()` — sets all entries to `false`
+- `handleConnectOne(plcId)` — sets one entry to `true` (ConnectionSettings per-device button)
+- `handleDisconnectOne(plcId)` — sets one entry to `false`
+
+`isAllConnected = Object.values(pollingStates).every(Boolean)` is passed to `Toolbar.isPollingActive`.
+`isAnyConnected = Object.values(pollingStates).some(Boolean)` is passed to `FixedControlSlots.isConnected`.
+
+---
+
 ## 2. Telemetry Data Lifecycle
 
 High-level flow from physical PLC register to rendered widget:

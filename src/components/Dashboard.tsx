@@ -75,12 +75,34 @@ export const Dashboard: React.FC = () => {
   const [isTrendVisible, setIsTrendVisible] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isApiTestOpen, setIsApiTestOpen] = useState(false)
-  const [isPollingActive, setIsPollingActive] = useState(false)
+  const [pollingStates, setPollingStates] = useState<Record<string, boolean>>({
+    [MELSEC_ID]: false,
+    [KEYENCE_ID]: false,
+  })
   const [activityView, setActivityView] = useState('explorer')
   const [leftWidth, setLeftWidth] = useState(220)
   const [rightWidth, setRightWidth] = useState(260)
   const [diagHeight, setDiagHeight] = useState(200)
   const isMobile = useIsMobile()
+
+  const isAnyConnected = Object.values(pollingStates).some(Boolean)
+  const isAllConnected = Object.values(pollingStates).every(Boolean)
+
+  const handleConnectAll = useCallback(() => {
+    setPollingStates({ [MELSEC_ID]: true, [KEYENCE_ID]: true })
+  }, [])
+
+  const handleDisconnectAll = useCallback(() => {
+    setPollingStates({ [MELSEC_ID]: false, [KEYENCE_ID]: false })
+  }, [])
+
+  const handleConnectOne = useCallback((plcId: string) => {
+    setPollingStates((prev) => ({ ...prev, [plcId]: true }))
+  }, [])
+
+  const handleDisconnectOne = useCallback((plcId: string) => {
+    setPollingStates((prev) => ({ ...prev, [plcId]: false }))
+  }, [])
 
   const handleResizeLeft = useCallback((delta: number) => {
     setLeftWidth((w) => Math.max(120, Math.min(400, w + delta)))
@@ -109,7 +131,7 @@ export const Dashboard: React.FC = () => {
     startAddress: START_ADDRESS,
     count: READ_COUNT,
     intervalMs: INTERVAL_MS,
-    enabled: isPollingActive,
+    enabled: pollingStates[MELSEC_ID],
   })
   usePlcPolling({
     plcId: KEYENCE_ID,
@@ -119,7 +141,7 @@ export const Dashboard: React.FC = () => {
     startAddress: START_ADDRESS,
     count: READ_COUNT,
     intervalMs: INTERVAL_MS,
-    enabled: isPollingActive,
+    enabled: pollingStates[KEYENCE_ID],
   })
 
   const currentTime = useCurrentTime()
@@ -142,9 +164,9 @@ export const Dashboard: React.FC = () => {
       {/* ── Toolbar — desktop only (28px) ───────────────────── */}
       {!isMobile && (
         <Toolbar
-          isPollingActive={isPollingActive}
-          onConnect={() => setIsPollingActive(true)}
-          onDisconnect={() => setIsPollingActive(false)}
+          isPollingActive={isAllConnected}
+          onConnect={handleConnectAll}
+          onDisconnect={handleDisconnectAll}
           onSettingsOpen={() => setIsSettingsOpen(true)}
           isTrendVisible={isTrendVisible}
           onTrendToggle={() => setIsTrendVisible((v) => !v)}
@@ -271,6 +293,9 @@ export const Dashboard: React.FC = () => {
               <FixedControlSlots
                 layout="vertical"
                 isTrendVisible={isTrendVisible}
+                isConnected={isAnyConnected}
+                onConnect={handleConnectAll}
+                onDisconnect={handleDisconnectAll}
                 onTrendToggle={() => setIsTrendVisible((v) => !v)}
                 onSettingsOpen={() => setIsSettingsOpen(true)}
               />
@@ -369,6 +394,9 @@ export const Dashboard: React.FC = () => {
         <FixedControlSlots
           layout="horizontal"
           isTrendVisible={isTrendVisible}
+          isConnected={isAnyConnected}
+          onConnect={handleConnectAll}
+          onDisconnect={handleDisconnectAll}
           onTrendToggle={() => setIsTrendVisible((v) => !v)}
           onSettingsOpen={() => setIsSettingsOpen(true)}
         />
@@ -383,6 +411,9 @@ export const Dashboard: React.FC = () => {
             { plcId: KEYENCE_ID, label: 'Keyence KV' },
           ]}
           isMobile={isMobile}
+          pollingStates={pollingStates}
+          onConnect={handleConnectOne}
+          onDisconnect={handleDisconnectOne}
           onClose={() => setIsSettingsOpen(false)}
         />
       )}

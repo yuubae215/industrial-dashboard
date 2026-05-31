@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { usePlcConfigStore } from '../store/usePlcConfigStore'
+import { usePlcStore } from '../store/usePlcStore'
 import { asPortNumber, asTimeoutMs } from '../types/branded'
 import { theme } from '../styles/theme'
 
@@ -11,6 +12,9 @@ export interface PlcEntry {
 interface ConnectionSettingsProps {
   plcs: PlcEntry[]
   isMobile?: boolean
+  pollingStates: Record<string, boolean>
+  onConnect: (plcId: string) => void
+  onDisconnect: (plcId: string) => void
   onClose: () => void
 }
 
@@ -23,9 +27,17 @@ interface FormValues {
 /** Minimum touch target height for glove operation (mobile only). */
 const GLOVE_MIN_H = 44
 
-export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, isMobile = false, onClose }) => {
+export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({
+  plcs,
+  isMobile = false,
+  pollingStates,
+  onConnect,
+  onDisconnect,
+  onClose,
+}) => {
   const configs = usePlcConfigStore((s) => s.configs)
   const updateConfig = usePlcConfigStore((s) => s.updateConfig)
+  const connectionStatuses = usePlcStore((s) => s.connectionStatuses)
 
   const [forms, setForms] = useState<Record<string, FormValues>>(() =>
     Object.fromEntries(
@@ -153,19 +165,98 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, is
           Connection Settings
         </h2>
 
-        {plcs.map(({ plcId, label }) => (
+        {plcs.map(({ plcId, label }) => {
+          const status = connectionStatuses[plcId] ?? 'disconnected'
+          const isActive = pollingStates[plcId] ?? false
+          const statusColor =
+            status === 'connected' ? theme.normal
+            : status === 'connecting' ? theme.warning
+            : status === 'error' ? theme.critical
+            : theme.border
+
+          return (
           <div key={plcId} style={{ marginBottom: isMobile ? 24 : 20 }}>
-            <h3
+            {/* Device header: label + status badge + connect/disconnect button */}
+            <div
               style={{
-                margin: '0 0 10px',
-                fontSize: isMobile ? theme.fs.base : theme.fs.base,
-                color: theme.accent,
-                fontWeight: 600,
-                letterSpacing: '0.03em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                marginBottom: 10,
+                flexWrap: 'wrap',
               }}
             >
-              {label}
-            </h3>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: theme.fs.base,
+                  color: theme.accent,
+                  fontWeight: 600,
+                  letterSpacing: '0.03em',
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                {label}
+              </h3>
+              {/* Connection status badge */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '2px 8px',
+                  borderRadius: 3,
+                  border: `1px solid ${statusColor}`,
+                  background: `${statusColor}15`,
+                  flexShrink: 0,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: statusColor,
+                    display: 'inline-block',
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: theme.fs.xs,
+                    color: statusColor,
+                    fontFamily: theme.fontMono,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {status.toUpperCase()}
+                </span>
+              </div>
+              {/* Per-device connect / disconnect button */}
+              <button
+                onClick={() => isActive ? onDisconnect(plcId) : onConnect(plcId)}
+                style={{
+                  padding: isMobile ? '0 16px' : '0 12px',
+                  minHeight: isMobile ? GLOVE_MIN_H : 28,
+                  background: isActive ? `${theme.critical}18` : `${theme.normal}18`,
+                  border: `1px solid ${isActive ? theme.critical : theme.normal}`,
+                  borderRadius: 4,
+                  color: isActive ? theme.critical : theme.normal,
+                  cursor: 'pointer',
+                  fontFamily: theme.fontMono,
+                  fontSize: isMobile ? theme.fs.md : theme.fs.xs,
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {isActive ? 'DISCONNECT' : 'CONNECT'}
+              </button>
+            </div>
 
             {/* Form layout: 3-col grid (desktop) or vertical stack (mobile) */}
             <div style={fieldRowStyle}>
@@ -208,7 +299,8 @@ export const ConnectionSettings: React.FC<ConnectionSettingsProps> = ({ plcs, is
               </p>
             )}
           </div>
-        ))}
+          )
+        })}
 
         <div
           style={{
