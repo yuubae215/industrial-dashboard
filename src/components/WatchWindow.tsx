@@ -150,38 +150,15 @@ export const WatchWindow: React.FC<WatchWindowProps> = ({ defaultPlcId: _default
   }
 
   return (
-    <div
-      style={{
-        borderTop: `3px solid ${theme.accent}`,
-        background: theme.bg,
-        padding: 16,
-        fontFamily: theme.fontMono,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 12,
-        }}
-      >
-        <span style={{ fontWeight: 700, color: theme.accent, fontSize: theme.fs.base }}>
-          Debug Watch Window
-        </span>
-        <span style={{ color: theme.textMuted, fontSize: theme.fs.sm }}>
-          Enter Mitsubishi (e.g. D1000) or Keyence (e.g. DM1000) to start monitoring
-        </span>
-      </div>
-
+    <div style={{ fontFamily: theme.fontMono, height: '100%', overflowY: 'auto' }}>
       {writeError && (
-        <div style={{ color: theme.critical, fontSize: 12, marginBottom: 8 }}>
+        <div style={{ color: theme.critical, fontSize: 12, padding: '4px 8px' }}>
           Write error: {writeError}
         </div>
       )}
 
       <table
-        style={{ width: '100%', borderCollapse: 'collapse', fontSize: theme.fs.base }}
+        style={{ width: '100%', borderCollapse: 'collapse', fontSize: theme.fs.xs }}
       >
         <thead>
           <tr style={{ background: theme.bgHeader, color: theme.textMuted }}>
